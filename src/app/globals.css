@@ -31,3 +31,13 @@ body {
     text-wrap: balance;
   }
 }
+@layer base {
+  body {
+    @apply antialiased;
+  }
+}
+
+/* Custom focus styles that match the design */
+input:focus {
+  @apply ring-offset-0;
+}
