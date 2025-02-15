@@ -127,7 +127,7 @@ export default function SignupPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <Link href="/auth/Login" className="text-[14px] text-[#6B7280] hover:text-[#14171F]">
+          <Link href="/auth/login" className="text-[14px] text-[#6B7280] hover:text-[#14171F]">
             Already have an account? Login
           </Link>
         </div>

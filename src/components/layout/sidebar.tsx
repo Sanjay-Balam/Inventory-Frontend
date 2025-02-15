@@ -1,95 +1,187 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   BarChart3,
-  Box,
-  DollarSign,
+  ChevronDown,
+  ChevronRight,
+  Cloud,
+  CreditCard,
   FileText,
-  LayoutDashboard,
   Package,
+  PenSquare,
   Settings,
+  ShoppingBag,
   ShoppingCart,
+  Store,
+  Truck,
   Users,
+  Wallet,
 } from "lucide-react"
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
-const sidebarItems = [
+const menuItems = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
+    title: "Sales",
+    icon: Wallet,
+    items: [
+      { title: "Invoices", href: "/sales/invoices" },
+      { title: "Credit Notes", href: "/sales/credit-notes" },
+      { title: "E-Invoices", href: "/sales/e-invoices" },
+      { title: "Subscriptions", href: "/sales/subscriptions" },
+    ],
+  },
+  {
+    title: "Purchases",
+    icon: ShoppingCart,
+    items: [],
+  },
+  {
+    title: "Quotations",
+    icon: PenSquare,
+    items: [],
+  },
+  {
+    title: "Expenses+",
+    icon: CreditCard,
+    items: [],
+  },
+  {
+    title: "Products & Services",
+    icon: Package,
+    href: "/products",
   },
   {
     title: "Inventory",
-    href: "/dashboard/inventory",
-    icon: Box,
+    icon: Store,
+    items: [],
   },
   {
-    title: "Products",
-    href: "/dashboard/products",
-    icon: Package,
-  },
-  {
-    title: "Orders",
-    href: "/dashboard/orders",
-    icon: ShoppingCart,
+    title: "Payments",
+    icon: Wallet,
+    items: [],
   },
   {
     title: "Customers",
-    href: "/dashboard/customers",
     icon: Users,
+    href: "/customers",
   },
   {
-    title: "Sales",
-    href: "/dashboard/sales",
-    icon: DollarSign,
+    title: "Vendors",
+    icon: Users,
+    href: "/vendors",
+  },
+  {
+    title: "Insights",
+    icon: BarChart3,
+    href: "/insights",
   },
   {
     title: "Reports",
-    href: "/dashboard/reports",
     icon: FileText,
+    href: "/reports",
   },
   {
-    title: "Analytics",
-    href: "/dashboard/analytics",
-    icon: BarChart3,
+    title: "Packing Lists",
+    icon: FileText,
+    href: "/packing-lists",
+  },
+  {
+    title: "E-way Bills",
+    icon: Truck,
+    href: "/e-way-bills",
+  },
+  {
+    title: "OnlineStore",
+    icon: ShoppingBag,
+    href: "/online-store",
+  },
+  {
+    title: "My Drive",
+    icon: Cloud,
+    href: "/my-drive",
+  },
+  {
+    title: "Add Users",
+    icon: Users,
+    href: "/users/add",
   },
   {
     title: "Settings",
-    href: "/dashboard/settings",
     icon: Settings,
+    href: "/settings",
   },
 ]
 
 export function Sidebar() {
   const pathname = usePathname()
+  const [openSections, setOpenSections] = React.useState<string[]>(["Sales"])
+
+  const toggleSection = (title: string) => {
+    setOpenSections((prev) => (prev.includes(title) ? prev.filter((section) => section !== title) : [...prev, title]))
+  }
 
   return (
-    <div className="flex h-screen w-64 flex-col border-r bg-white">
-      <div className="flex h-14 items-center border-b px-4">
-        <h1 className="text-lg font-semibold">Inventory System</h1>
-      </div>
-      <div className="flex-1 overflow-auto py-4">
-        <nav className="grid gap-1 px-2">
-          {sidebarItems.map((item) => (
-            <Button
-              key={item.href}
-              variant={pathname === item.href ? "secondary" : "ghost"}
-              className={cn("justify-start gap-2")}
-              asChild
+    <div className="w-64 bg-[#F9FAFB] min-h-screen py-4">
+      <nav className="space-y-1">
+        {menuItems.map((item) => {
+          const isOpen = openSections.includes(item.title)
+          const isActive = pathname.startsWith(item.href || "")
+
+          if (item.items && item.items.length > 0) {
+            return (
+              <Collapsible key={item.title} open={isOpen} onOpenChange={() => toggleSection(item.title)}>
+                <CollapsibleTrigger
+                  className={`flex w-full items-center justify-between px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-100 ${
+                    isActive ? "bg-gray-100" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <item.icon className="h-5 w-5 text-gray-500" />
+                    <span>{item.title}</span>
+                  </div>
+                  {isOpen ? (
+                    <ChevronDown className="h-4 w-4 text-gray-500" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-gray-500" />
+                  )}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="ml-11 space-y-1">
+                    {item.items.map((subItem) => (
+                      <Link
+                        key={subItem.href}
+                        href={subItem.href}
+                        className={`block px-4 py-2 text-[14px] text-gray-600 hover:bg-gray-100 ${
+                          pathname === subItem.href ? "bg-gray-100" : ""
+                        }`}
+                      >
+                        {subItem.title}
+                      </Link>
+                    ))}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )
+          }
+
+          return (
+            <Link
+              key={item.title}
+              href={item.href || "#"}
+              className={`flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-100 ${
+                isActive ? "bg-gray-100" : ""
+              }`}
             >
-              <Link href={item.href}>
-                <item.icon className="h-4 w-4" />
-                {item.title}
-              </Link>
-            </Button>
-          ))}
-        </nav>
-      </div>
+              <item.icon className="h-5 w-5 text-gray-500" />
+              <span>{item.title}</span>
+            </Link>
+          )
+        })}
+      </nav>
     </div>
   )
 }

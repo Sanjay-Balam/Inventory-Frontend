@@ -5,18 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import * as z from "zod"
-
-const loginSchema = z.object({
-  email: z.string().email({
-    message: "Please enter a valid email address",
-  }),
-  password: z.string().min(8, {
-    message: "Password must be at least 8 characters long",
-  }),
-})
-
-type LoginSchema = z.infer<typeof loginSchema>
+import { loginSchema, type LoginSchema } from "@/lib/validations/auth"
 
 export default function LoginPage() {
   const router = useRouter()
@@ -103,7 +92,7 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-6 text-center">
-          <Link href="/auth/Signup" className="text-[14px] text-[#6B7280] hover:text-[#14171F]">
+          <Link href="/auth/signup" className="text-[14px] text-[#6B7280] hover:text-[#14171F]">
             Don&apos;t have an account? Sign up
           </Link>
         </div>
