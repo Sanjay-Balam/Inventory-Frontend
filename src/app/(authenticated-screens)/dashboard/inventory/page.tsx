@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ArrowLeft, ArrowRight, ChevronDown, Download, Info, Lock, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -9,35 +9,99 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
-// Sample data
-const sampleProducts = [
-  {
-    id: 1,
-    name: "Sample Product",
-    qty: 0,
-    purchasePrice: 0.0,
-    salePrice: 100.0,
-    lastUpdated: "Mon 1:42 PM",
-  },
-]
+interface Product {
+  product_id: number
+  name: string
+  quantity: number
+  cost_price: string
+  price: string
+  created_at: string
+  category: {
+    name: string
+  }
+  // Add other fields as needed
+}
 
 export default function InventoryPage() {
+  const [products, setProducts] = useState<Product[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
+  const [searchTerm, setSearchTerm] = useState<string>("")
   const itemsPerPage = 10
+
+  // Fetch products when component mounts
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/inventory/products')
+        const data = await response.json()
+        setProducts(data)
+      } catch (error) {
+        console.error('Error fetching products:', error)
+      }
+    }
+
+    fetchProducts()
+  }, [])
+
+  // Filter products based on search term (by name or product_id)
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.product_id.toString().includes(searchTerm)
+  )
+
+  const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number) => {
+    try {
+      const stock = action === 'in' ? currentStock + 1 : currentStock - 1;
+      
+      const response = await fetch('http://localhost:3000/api/inventory/inventory/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          product_id: productId,
+          channel_id: 1,
+          stock: stock
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        console.error('Server response:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(`Failed to update stock: ${response.status} ${response.statusText}`);
+      }
+
+      const updatedProductsResponse = await fetch('http://localhost:3000/api/inventory/products');
+      if (!updatedProductsResponse.ok) {
+        throw new Error('Failed to fetch updated products');
+      }
+      
+      const updatedProducts = await updatedProductsResponse.json();
+      setProducts(updatedProducts);
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      // You might want to show this error to the user
+      alert('Failed to update stock. Please try again.');
+    }
+  };
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-6">
-        <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
+        {/* <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Enjoy customizable templates, GST reports, and premium support! ⭐⭐⭐</span>
           </div>
           <Button variant="default" size="sm" className="bg-white text-black hover:bg-gray-100">
             Subscribe Now! 🚀
           </Button>
-        </div>
+        </div> */}
 
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Inventory</h1>
@@ -113,8 +177,13 @@ export default function InventoryPage() {
       {/* Search and Filters */}
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-500" />
-          <Input placeholder="Search Inventory" className="pl-9" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search Inventory"
+            className="pl-9 text-muted-foreground"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
         <Select value={selectedCategory} onValueChange={setSelectedCategory}>
           <SelectTrigger className="w-[200px]">
@@ -158,19 +227,27 @@ export default function InventoryPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sampleProducts.map((product) => (
-              <TableRow key={product.id}>
+            {filteredProducts.map((product) => (
+              <TableRow key={product.product_id}>
                 <TableCell className="text-muted-foreground">{product.name}</TableCell>
-                <TableCell className="text-muted-foreground">{product.qty}</TableCell>
-                <TableCell className="text-muted-foreground">₹ {product.purchasePrice.toFixed(2)}</TableCell>
-                <TableCell className="text-muted-foreground">₹ {product.salePrice.toFixed(2)}</TableCell>
-                <TableCell className="text-muted-foreground">{product.lastUpdated}</TableCell>
+                <TableCell className="text-muted-foreground">{product.quantity}</TableCell>
+                <TableCell className="text-muted-foreground">₹ {parseFloat(product.cost_price).toFixed(2)}</TableCell>
+                <TableCell className="text-muted-foreground">₹ {parseFloat(product.price).toFixed(2)}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {new Date(product.created_at).toLocaleString('en-US', { 
+                    weekday: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true 
+                  })}
+                </TableCell>
                 <TableCell>
                   <div className="flex gap-2 text-muted-foreground">
                     <Button
                       size="sm"
                       variant="outline"
                       className="h-8 bg-green-50 text-green-700 hover:bg-green-100 border-0"
+                      onClick={() => handleStockUpdate(product.product_id, 'in', product.quantity)}
                     >
                       Stock In
                     </Button>
@@ -178,6 +255,7 @@ export default function InventoryPage() {
                       size="sm"
                       variant="outline"
                       className="h-8 bg-red-50 text-red-700 hover:bg-red-100 border-0"
+                      onClick={() => handleStockUpdate(product.product_id, 'out', product.quantity)}
                     >
                       Stock Out
                     </Button>
@@ -215,7 +293,7 @@ export default function InventoryPage() {
       </div>
 
       {/* Promotional Section */}
-      <div className="bg-blue-50 p-6 rounded-lg">
+      {/* <div className="bg-blue-50 p-6 rounded-lg">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold">Add Multiple Warehouses</h3>
@@ -228,7 +306,7 @@ export default function InventoryPage() {
             <Button className="bg-yellow-400 text-black hover:bg-yellow-500">Upgrade ⚡</Button>
           </div>
         </div>
-      </div>
+      </div> */}
     </div>
   )
 }
