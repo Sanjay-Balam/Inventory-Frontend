@@ -9,7 +9,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  useAuthCheck()
+  // useAuthCheck()
 
   return (
     <div className="flex min-h-screen">
