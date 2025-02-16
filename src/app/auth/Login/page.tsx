@@ -14,7 +14,7 @@ export default function LoginPage() {
   const form = useForm<LoginSchema>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   })
@@ -51,18 +51,18 @@ export default function LoginPage() {
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">
-            <label htmlFor="email" className="block text-[14px] font-medium text-[#14171F]">
-              Email
+            <label htmlFor="username" className="block text-[14px] font-medium text-[#14171F]">
+              Username
             </label>
             <input
-              {...form.register("email")}
-              type="email"
-              id="email"
-              placeholder="Enter your email"
+              {...form.register("username")}
+              type="text"
+              id="username"
+              placeholder="Enter your username"
               className="h-[52px] w-full rounded-[10px] border border-[#E5E7EB] bg-white px-4 text-[16px] text-[#14171F] placeholder:text-[#9CA3AF] focus:border-[#14171F] focus:outline-none focus:ring-1 focus:ring-[#14171F]"
             />
-            {form.formState.errors.email && (
-              <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
+            {form.formState.errors.username && (
+              <p className="text-sm text-red-500">{form.formState.errors.username.message}</p>
             )}
           </div>
 
