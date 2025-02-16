@@ -7,9 +7,12 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { loginSchema, type LoginSchema } from "@/lib/validations/auth"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"
+
 export default function LoginPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const form = useForm<LoginSchema>({
     resolver: zodResolver(loginSchema),
@@ -21,20 +24,43 @@ export default function LoginPage() {
 
   async function onSubmit(data: LoginSchema) {
     setIsLoading(true)
+    setError(null)
+
     try {
-      // Here you would typically make an API call to authenticate
-      const response = await fetch("/api/auth/login", {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: data.username,
+          password: data.password,
+        }),
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        throw new Error("Login failed")
+        throw new Error(result.error || "Login failed")
       }
 
-      router.push("/dashboard")
+      if (result.authToken && result.refreshToken) {
+        // Store both tokens in localStorage
+        localStorage.setItem("authToken", result.authToken)
+        localStorage.setItem("refreshToken", result.refreshToken)
+        
+        // Store user data if needed
+        localStorage.setItem("userData", JSON.stringify(result.user))
+
+        // Redirect to dashboard
+        router.push("/dashboard")
+      }
     } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError("An error occurred during login")
+      }
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -48,6 +74,12 @@ export default function LoginPage() {
           <h1 className="mb-3 text-[32px] font-bold text-[#14171F]">Welcome Back</h1>
           <p className="text-[16px] text-[#6B7280]">Enter your credentials to continue</p>
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-500">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">

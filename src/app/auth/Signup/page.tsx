@@ -5,12 +5,14 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-
 import { signupSchema, type SignupSchema } from "@/lib/validations/auth"
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"
 
 export default function SignupPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const form = useForm<SignupSchema>({
     resolver: zodResolver(signupSchema),
@@ -24,20 +26,38 @@ export default function SignupPage() {
 
   async function onSubmit(data: SignupSchema) {
     setIsLoading(true)
+    setError(null)
+    
     try {
-      // Here you would typically make an API call to register
-      const response = await fetch("/api/auth/signup", {
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username: data.username,
+          email: data.email,
+          phone: data.phone,
+          password: data.password,
+        }),
       })
 
+      const result = await response.json()
+
       if (!response.ok) {
-        throw new Error("Signup failed")
+        throw new Error(result.error || "Signup failed")
       }
 
-      router.push("/login")
+      if (result.user) {
+        // Signup successful, redirect to login
+        router.push("/auth/login")
+      }
     } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message)
+      } else {
+        setError("An error occurred during signup")
+      }
       console.error(error)
     } finally {
       setIsLoading(false)
@@ -51,6 +71,12 @@ export default function SignupPage() {
           <h1 className="mb-3 text-[32px] font-bold text-[#14171F]">Create Account</h1>
           <p className="text-[16px] text-[#6B7280]">Enter your details to get started</p>
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-lg bg-red-50 p-4 text-red-500">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           <div className="space-y-2">

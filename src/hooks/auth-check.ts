@@ -6,8 +6,8 @@ export function useAuthCheck() {
 
   useEffect(() => {
     const authToken = localStorage.getItem("authToken")
-    
-    if (!authToken) {
+    const refreshToken = localStorage.getItem("refreshToken")
+    if (!authToken || !refreshToken) {
       router.push("/auth/login")
     }
   }, [router])
