@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { signupSchema, type SignupSchema } from "@/lib/validations/auth"
+import { Eye, EyeOff } from "lucide-react"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"
 
@@ -13,6 +14,7 @@ export default function SignupPage() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPassword, setShowPassword] = useState(false)
 
   const form = useForm<SignupSchema>({
     resolver: zodResolver(signupSchema),
@@ -131,13 +133,22 @@ export default function SignupPage() {
             <label htmlFor="password" className="block text-[14px] font-medium text-[#14171F]">
               Password
             </label>
-            <input
-              {...form.register("password")}
-              type="password"
-              id="password"
-              placeholder="Enter your password"
-              className="h-[52px] w-full rounded-[10px] border border-[#E5E7EB] bg-white px-4 text-[16px] text-[#14171F] placeholder:text-[#9CA3AF] focus:border-[#14171F] focus:outline-none focus:ring-1 focus:ring-[#14171F]"
-            />
+            <div className="relative">
+              <input
+                {...form.register("password")}
+                type={showPassword ? "text" : "password"}
+                id="password"
+                placeholder="Enter your password"
+                className="h-[52px] w-full rounded-[10px] border border-[#E5E7EB] bg-white px-4 text-[16px] text-[#14171F] placeholder:text-[#9CA3AF] focus:border-[#14171F] focus:outline-none focus:ring-1 focus:ring-[#14171F]"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2"
+              >
+                {showPassword ? <Eye className="h-5 w-5 text-[#14171F]" /> : <EyeOff className="h-5 w-5 text-[#14171F]" />}
+              </button>
+            </div>
             {form.formState.errors.password && (
               <p className="text-sm text-red-500">{form.formState.errors.password.message}</p>
             )}
