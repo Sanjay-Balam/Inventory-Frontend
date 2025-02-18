@@ -45,10 +45,18 @@ export default function LoginPage() {
       }
 
       if (result.authToken && result.refreshToken) {
-        // Store both tokens in localStorage
-        localStorage.setItem("authToken", result.authToken)
-        localStorage.setItem("refreshToken", result.refreshToken)
-        
+        // Store authToken without 'Bearer ' prefix
+        const authToken = result.authToken.startsWith('Bearer ') 
+          ? result.authToken.replace('Bearer ', '')
+          : result.authToken
+        localStorage.setItem("authToken", authToken)
+
+        // Store refreshToken without 'Bearer ' prefix
+        const refreshToken = result.refreshToken.startsWith('Bearer ')
+          ? result.refreshToken.replace('Bearer ', '')
+          : result.refreshToken
+        localStorage.setItem("refreshToken", refreshToken)
+
         // Store user data if needed
         localStorage.setItem("userData", JSON.stringify(result.user))
 

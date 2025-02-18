@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { PrismaAPIRequest } from "@/lib/utils"
+
 
 interface Product {
   product_id: number
@@ -19,7 +21,11 @@ interface Product {
   category: {
     name: string
   }
-  // Add other fields as needed
+  inventory: Array<{
+    inventory_id: number
+    stock: number
+    last_updated: string
+  }>
 }
 
 export default function InventoryPage() {
@@ -29,66 +35,57 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState<string>("")
   const itemsPerPage = 10
 
-  // Fetch products when component mounts
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const response = await fetch('http://localhost:3000/api/inventory/products')
-        const data = await response.json()
-        setProducts(data)
-      } catch (error) {
-        console.error('Error fetching products:', error)
-      }
-    }
-
-    fetchProducts()
-  }, [])
-
-  // Filter products based on search term (by name or product_id)
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.product_id.toString().includes(searchTerm)
-  )
 
   const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number) => {
     try {
       const stock = action === 'in' ? currentStock + 1 : currentStock - 1;
       
-      const response = await fetch('http://localhost:3000/api/inventory/inventory/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await PrismaAPIRequest(
+        "/inventory/update",
+        "POST",
+        {
           product_id: productId,
           channel_id: 1,
           stock: stock
-        }),
-      });
+        }
+      )
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        console.error('Server response:', {
-          status: response.status,
-          statusText: response.statusText,
-          error: errorData
-        });
-        throw new Error(`Failed to update stock: ${response.status} ${response.statusText}`);
+      // Handle successful response
+      if (response) {
+        // Refresh the product list or update the UI
+        fetchProducts() // Your function to refresh the products list
       }
-
-      const updatedProductsResponse = await fetch('http://localhost:3000/api/inventory/products');
-      if (!updatedProductsResponse.ok) {
-        throw new Error('Failed to fetch updated products');
-      }
-      
-      const updatedProducts = await updatedProductsResponse.json();
-      setProducts(updatedProducts);
     } catch (error) {
-      console.error('Error updating stock:', error);
-      // You might want to show this error to the user
-      alert('Failed to update stock. Please try again.');
+      console.error("Failed to update stock:", error)
+      // Handle error (maybe show a toast notification)
     }
-  };
+  }
+
+  const handleSellItem = (productId: number) => {
+    const product = products.find(p => p.product_id === productId)
+
+    console.log("product",product)
+  }
+
+  const fetchProducts = async () => {
+    try {
+      const response = await PrismaAPIRequest("/inventory/products", "GET");
+      setProducts(response || []);
+    } catch (error) {
+      console.error("Failed to fetch products:", error)
+      setProducts([])
+    }
+  }
+
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
+  // Filter products based on search term
+  const filteredProducts = products?.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.product_id.toString().includes(searchTerm)
+  ) || []
 
   return (
     <div className="p-6 space-y-6">
@@ -230,11 +227,17 @@ export default function InventoryPage() {
             {filteredProducts.map((product) => (
               <TableRow key={product.product_id}>
                 <TableCell className="text-muted-foreground">{product.name}</TableCell>
-                <TableCell className="text-muted-foreground">{product.quantity}</TableCell>
-                <TableCell className="text-muted-foreground">₹ {parseFloat(product.cost_price).toFixed(2)}</TableCell>
-                <TableCell className="text-muted-foreground">₹ {parseFloat(product.price).toFixed(2)}</TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(product.created_at).toLocaleString('en-US', { 
+                  {product.inventory[0]?.stock || product.quantity || 0}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  ₹ {parseFloat(product.cost_price).toFixed(2)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  ₹ {parseFloat(product.price).toFixed(2)}
+                </TableCell>
+                <TableCell className="text-muted-foreground">
+                  {new Date(product.inventory[0]?.last_updated || product.created_at).toLocaleString('en-US', { 
                     weekday: 'short',
                     hour: 'numeric',
                     minute: '2-digit',
@@ -247,7 +250,11 @@ export default function InventoryPage() {
                       size="sm"
                       variant="outline"
                       className="h-8 bg-green-50 text-green-700 hover:bg-green-100 border-0"
-                      onClick={() => handleStockUpdate(product.product_id, 'in', product.quantity)}
+                      onClick={() => handleStockUpdate(
+                        product.product_id, 
+                        'in', 
+                        product.inventory[0]?.stock || product.quantity || 0
+                      )}
                     >
                       Stock In
                     </Button>
@@ -255,9 +262,21 @@ export default function InventoryPage() {
                       size="sm"
                       variant="outline"
                       className="h-8 bg-red-50 text-red-700 hover:bg-red-100 border-0"
-                      onClick={() => handleStockUpdate(product.product_id, 'out', product.quantity)}
+                      onClick={() => handleStockUpdate(
+                        product.product_id, 
+                        'out', 
+                        product.inventory[0]?.stock || product.quantity || 0
+                      )}
                     >
                       Stock Out
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 bg-blue-50 text-blue-700 hover:bg-blue-100 border-0"
+                      onClick={() => handleSellItem(product.product_id)}
+                    >
+                      Sell Item
                     </Button>
                   </div>
                 </TableCell>
