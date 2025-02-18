@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   BarChart3,
   ChevronDown,
@@ -58,6 +58,7 @@ const menuItems = [
     title: "Inventory",
     icon: Store,
     items: [],
+    href: "/dashboard/inventory",
   },
   {
     title: "Payments",
@@ -117,8 +118,15 @@ const menuItems = [
 ]
 
 export function Sidebar() {
+  const router = useRouter()
   const pathname = usePathname()
   const [openSections, setOpenSections] = React.useState<string[]>(["Sales"])
+
+  const handleNavigation = (href: string) => {
+    if (typeof window !== 'undefined') {
+      router.push(href)
+    }
+  }
 
   const toggleSection = (title: string) => {
     setOpenSections((prev) => (prev.includes(title) ? prev.filter((section) => section !== title) : [...prev, title]))
@@ -169,16 +177,16 @@ export function Sidebar() {
           }
 
           return (
-            <Link
+            <button
               key={item.title}
-              href={item.href || "#"}
-              className={`flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-100 ${
+              onClick={() => handleNavigation(item.href || "#")}
+              className={`w-full flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-100 ${
                 isActive ? "bg-gray-100" : ""
               }`}
             >
               <item.icon className="h-5 w-5 text-gray-500" />
               <span>{item.title}</span>
-            </Link>
+            </button>
           )
         })}
       </nav>
