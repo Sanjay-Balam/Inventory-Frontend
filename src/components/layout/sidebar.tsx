@@ -52,7 +52,7 @@ const menuItems = [
   {
     title: "Products & Services",
     icon: Package,
-    href: "/products",
+    href: "/dashboard/products",
   },
   {
     title: "Inventory",
