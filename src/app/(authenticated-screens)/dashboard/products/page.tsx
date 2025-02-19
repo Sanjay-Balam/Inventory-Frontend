@@ -9,6 +9,7 @@ import { ChevronDown, ChevronRight, MoreHorizontal, Plus, SlidersHorizontal } fr
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useEffect, useState } from "react"
 import { AddProductDialog } from "@/components/ui/model"
+import { PrismaAPIRequest } from "@/lib/utils"
 
 interface Product {
   product_id: number
@@ -29,7 +30,11 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/inventory/products')
+      const response = await PrismaAPIRequest(
+        "/inventory/products",
+        "GET",
+        {}
+      )
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
@@ -103,7 +108,7 @@ export default function ProductsPage() {
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Select Category" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-white">
               <SelectItem value="all">All Categories</SelectItem>
               <SelectItem value="electronics">Electronics</SelectItem>
               <SelectItem value="clothing">Clothing</SelectItem>
@@ -117,15 +122,15 @@ export default function ProductsPage() {
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2">
+              <Button variant="outline" className="gap-2 text-muted-foreground">
                 Actions
-                <ChevronDown className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem>Import</DropdownMenuItem>
-              <DropdownMenuItem>Export</DropdownMenuItem>
-              <DropdownMenuItem>Print</DropdownMenuItem>
+            <DropdownMenuContent align="end" className="bg-white">
+              <DropdownMenuItem className="text-muted-foreground">Import</DropdownMenuItem>
+              <DropdownMenuItem className="text-muted-foreground">Export</DropdownMenuItem>
+              <DropdownMenuItem className="text-muted-foreground">Print</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <AddProductDialog onProductAdded={handleProductAdded} />

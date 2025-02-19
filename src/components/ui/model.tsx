@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Package, DollarSign, Boxes, Palette, Image } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-
+import { PrismaAPIRequest } from "@/lib/utils"
 interface AddProductDialogProps {
   onProductAdded: () => void
 }
@@ -45,13 +45,11 @@ export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
     setError(null)
 
     try {
-      const response = await fetch('http://localhost:3000/api/inventory/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      })
+      const response = await PrismaAPIRequest(
+        "/inventory/products",
+        "POST",
+        formData
+      )
 
       if (!response.ok) {
         const errorData = await response.json()
