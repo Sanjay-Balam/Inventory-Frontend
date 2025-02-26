@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { PrismaAPIRequest } from "@/lib/utils"
-
+import { Modal } from "@/components/ui/modal"
+import { useForm, Controller } from "react-hook-form"
 
 interface Product {
   product_id: number
@@ -32,11 +33,11 @@ export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showModal, setShowModal] = useState<boolean>(false);
   const itemsPerPage = 10
 
-
-  const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number) => {
+  const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number, channel_id: number) => {
     try {
       const stock = action === 'in' ? currentStock + 1 : currentStock - 1;
       
@@ -45,7 +46,7 @@ export default function InventoryPage() {
         "POST",
         {
           product_id: productId,
-          channel_id: 1,
+          channel_id: channel_id,
           stock: stock
         }
       )
@@ -63,13 +64,14 @@ export default function InventoryPage() {
 
   const handleSellItem = (productId: number) => {
     const product = products.find(p => p.product_id === productId)
-
-    console.log("product",product)
+    setSelectedProduct(product)
+    setShowModal(true)
   }
 
   const fetchProducts = async () => {
     try {
       const response = await PrismaAPIRequest("/inventory/products", "GET");
+      console.log("response of products",response)
       setProducts(response || []);
     } catch (error) {
       console.error("Failed to fetch products:", error)
@@ -87,30 +89,88 @@ export default function InventoryPage() {
     product.product_id.toString().includes(searchTerm)
   ) || []
 
+  interface SellItemFormData {
+    customerName?: string;
+    phoneNumber?: string;
+    email?: string;
+    quantity: number;
+    salesChannel: string;
+    sellingPrice: string;
+    paymentMethod: string;
+  }
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  const { control, handleSubmit, setValue, watch, reset } = useForm<SellItemFormData>({
+    defaultValues: {
+      customerName: '',
+      phoneNumber: '',
+      email: '',
+      quantity: 1,
+      salesChannel: 'Store',
+      sellingPrice: '',
+      paymentMethod: 'Cash'
+    }
+  });
+
+  // Set selling price when product is selected
+  useEffect(() => {
+    if (selectedProduct) {
+      setValue('sellingPrice', selectedProduct.price);
+    }
+  }, [selectedProduct, setValue]);
+
+  const watchQuantity = watch('quantity');
+  const watchSellingPrice = watch('sellingPrice');
+
+  const onSubmit = async (data: SellItemFormData) => {
+    if (!selectedProduct) return;
+    
+    try {
+      // Implement your API call to process the sale
+      // Example:
+      // const response = await PrismaAPIRequest("/sales/create", "POST", {
+      //   product_id: selectedProduct.product_id,
+      //   customer_name: data.customerName,
+      //   ...other form data
+      // });
+      
+      // Update inventory after successful sale
+      await handleStockUpdate(
+        selectedProduct.product_id,
+        'out',
+        selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0,
+        selectedProduct.inventory[0]?.inventory_id || 0
+      );
+      
+      setShowModal(false);
+      reset(); // Reset form
+      fetchProducts(); // Refresh product list
+    } catch (error) {
+      console.error("Failed to process sale:", error);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-6">
-        {/* <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Enjoy customizable templates, GST reports, and premium support! ⭐⭐⭐</span>
-          </div>
-          <Button variant="default" size="sm" className="bg-white text-black hover:bg-gray-100">
-            Subscribe Now! 🚀
-          </Button>
-        </div> */}
 
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Inventory</h1>
           <div className="flex gap-2">
-            <Button variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 border-0">
-              <Download className="w-4 h-4 mr-2" />
-              Bulk Items Stock In
-            </Button>
-            <Button variant="outline" className="bg-red-50 text-red-700 hover:bg-red-100 border-0">
-              <Download className="w-4 h-4 mr-2" />
-              Bulk Items Stock Out
-            </Button>
+            <div onClick={() => setShowModal(true)}>
+              <Button variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 border-0">
+                <Download className="w-4 h-4 mr-2" />
+                Bulk Items Stock In
+              </Button>
+            </div>
+            <div>
+              <Button variant="outline" className="bg-red-50 text-red-700 hover:bg-red-100 border-0">
+                <Download className="w-4 h-4 mr-2" />
+                Bulk Items Stock Out
+              </Button>
+            </div>
             <Button className="bg-blue-600">
               <Lock className="w-4 h-4 mr-2" />
               Manage Warehouses
@@ -182,28 +242,7 @@ export default function InventoryPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select Category" className="text-muted-foreground" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="electronics">Electronics</SelectItem>
-            <SelectItem value="clothing">Clothing</SelectItem>
-          </SelectContent>
-        </Select>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              Actions
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem>Export</DropdownMenuItem>
-            <DropdownMenuItem>Print</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+
         <Button className="bg-blue-600">
           <Download className="mr-2 h-4 w-4" />
           Download Stock Report
@@ -253,7 +292,8 @@ export default function InventoryPage() {
                       onClick={() => handleStockUpdate(
                         product.product_id, 
                         'in', 
-                        product.inventory[0]?.stock || product.quantity || 0
+                        product.inventory[0]?.stock || product.quantity || 0,
+                        product.inventory[0]?.channel_id || 0
                       )}
                     >
                       Stock In
@@ -265,7 +305,8 @@ export default function InventoryPage() {
                       onClick={() => handleStockUpdate(
                         product.product_id, 
                         'out', 
-                        product.inventory[0]?.stock || product.quantity || 0
+                        product.inventory[0]?.stock || product.quantity || 0,
+                        product.inventory[0]?.channel_id || 0
                       )}
                     >
                       Stock Out
@@ -326,6 +367,257 @@ export default function InventoryPage() {
           </div>
         </div>
       </div> */}
+
+      {showModal && selectedProduct && (
+        <Modal
+          title="Sell Items"
+          onClose={() => {
+            setShowModal(false);
+            reset();
+          }}
+          overlayModal={false}
+          contentClassName="max-w-4xl mt-10 overflow-y-auto max-h-[90vh]"
+          alignment="top"
+        >
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-4">
+            {/* Product Information */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Product Information</h2>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">Product Name</p>
+                  <p className="text-lg text-muted-foreground">{selectedProduct.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">SKU</p>
+                  <p className="text-lg text-muted-foreground">SKU{selectedProduct.product_id.toString().padStart(3, '0')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">Available Quantity</p>
+                  <p className="text-lg text-muted-foreground">{selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">Base Price</p>
+                  <p className="text-lg text-muted-foreground">₹ {parseFloat(selectedProduct.price).toFixed(2)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Customer Information */}
+            <div className="border rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Customer Information</h2>
+              
+              {/* Customer Type Tabs */}
+              <div className="grid grid-cols-2 gap-2 mb-4">
+                <button type="button" className="p-4 bg-gray-100 rounded-lg text-center text-muted-foreground">
+                  Existing Customer
+                </button>
+                <button type="button" className="p-4 bg-white rounded-lg text-center border text-muted-foreground">
+                  New Customer
+                </button>
+              </div>
+              
+              {/* Customer Details Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Customer Name</label>
+                  <Controller
+                    name="customerName"
+                    control={control}
+                    rules={{ required: "Customer name is required" }}
+                    render={({ field, fieldState }) => (
+                      <>
+                        <Input 
+                          {...field}
+                          placeholder="Enter customer name" 
+                          className="text-muted-foreground"
+                        />
+                        {fieldState.error && (
+                          <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Phone Number (Optional)</label>
+                    <Controller
+                      name="phoneNumber"
+                      control={control}
+                      render={({ field }) => (
+                        <Input 
+                          {...field}
+                          placeholder="Enter phone number" 
+                          className="text-muted-foreground"
+                        />
+                      )}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Email (Optional)</label>
+                    <Controller
+                      name="email"
+                      control={control}
+                      render={({ field }) => (
+                        <Input 
+                          {...field}
+                          placeholder="Enter email address" 
+                          className="text-muted-foreground"
+                        />
+                      )}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Order Details */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Order Details</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Quantity</label>
+                  <Controller
+                    name="quantity"
+                    control={control}
+                    rules={{ 
+                      required: "Quantity is required",
+                      min: {
+                        value: 1,
+                        message: "Quantity must be at least 1"
+                      },
+                      max: {
+                        value: selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0,
+                        message: `Maximum available quantity is ${selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}`
+                      }
+                    }}
+                    render={({ field, fieldState }) => (
+                      <>
+                        <Input 
+                          {...field}
+                          type="number" 
+                          min="1" 
+                          max={selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}
+                          className="text-muted-foreground"
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        />
+                        {fieldState.error && (
+                          <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Sales Channel</label>
+                  <Controller
+                    name="salesChannel"
+                    control={control}
+                    rules={{ required: "Sales channel is required" }}
+                    render={({ field }) => (
+                      <Select 
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger className="text-muted-foreground">
+                          <SelectValue placeholder="Select sales channel" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white z-50">
+                          <SelectItem value="Store">Store</SelectItem>
+                          <SelectItem value="Online">Online</SelectItem>
+                          <SelectItem value="Phone">Phone</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+              
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-1 text-muted-foreground">Selling Price</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2">₹</span>
+                  <Controller
+                    name="sellingPrice"
+                    control={control}
+                    rules={{ required: "Selling price is required" }}
+                    render={({ field, fieldState }) => (
+                      <>
+                        <Input 
+                          {...field}
+                          className="pl-8 text-muted-foreground"
+                        />
+                        {fieldState.error && (
+                          <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Details */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Payment Details</h2>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-muted-foreground">Payment Method</label>
+                <Controller
+                  name="paymentMethod"
+                  control={control}
+                  rules={{ required: "Payment method is required" }}
+                  render={({ field }) => (
+                    <Select 
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger className="text-muted-foreground">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white z-50">
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Card">Card</SelectItem>
+                        <SelectItem value="UPI">UPI</SelectItem>
+                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-medium text-muted-foreground">Total Amount:</span>
+                <span className="text-xl font-bold text-muted-foreground">
+                  ₹ {((parseFloat(watchSellingPrice) || parseFloat(selectedProduct.price)) * (watchQuantity || 1)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 mt-6">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setShowModal(false);
+                  reset();
+                }}
+                className="text-muted-foreground"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-blue-600">
+                Complete Sale
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   )
 }

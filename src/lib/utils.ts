@@ -14,12 +14,13 @@ interface APIRequestOptions {
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"
-
+const token = typeof window !== "undefined" ? localStorage.getItem("authToken") : null
 export async function baseFetch(endpoint: string, options: APIRequestOptions) {
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     method: options.method,
     headers: {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`,
       ...options.headers,
     },
     body: options.data ? JSON.stringify(options.data) : undefined,
