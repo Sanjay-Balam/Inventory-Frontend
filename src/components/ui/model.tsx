@@ -1,266 +1,108 @@
 "use client"
 
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-// Removed the import for Avatar and AvatarFallback due to the error
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, SlidersHorizontal } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useEffect, useState } from "react"
-<<<<<<< HEAD
-import { AddProductDialog } from "@/components/ui/model"
-import { PrismaAPIRequest } from "@/lib/utils"
-=======
-import { AddProductDialog } from "@/components/ui/model-new"
-import { Modal } from "@/components/ui/modal"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Package, DollarSign, Boxes, Palette,  } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Package, DollarSign, Boxes, Palette, Image } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Image } from "lucide-react"
->>>>>>> 903ea0f8341c9dc14bfbb4cb6001cdaae8fb336a
-
-interface Product {
-  product_id: number
-  name: string
-  sku: string
-  quantity: number
-  price: string
-  cost_price: string
-  category: {
-    name: string
-  }
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PrismaAPIRequest } from "@/lib/utils"
+interface AddProductDialogProps {
+  onProductAdded: () => void
 }
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
+export function AddProductDialog({ onProductAdded }: AddProductDialogProps) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [open, setOpen] = useState<boolean>(false)
+
   const [formData, setFormData] = useState({
     name: "",
-    category_id: "",
     sku: "",
     barcode: "",
-    cost_price: "",
     price: "",
+    cost_price: "",
     quantity: "",
     low_stock_threshold: "",
+    category_id: "",
     color: "",
     material: "",
     size: "",
+    final_selling_price: "",
+    description: "",
     variant_1: "",
     variant_2: "",
-    description: "",  
-    image_url: "",
-    final_selling_price: ""
+    image_url: ""
   })
 
-  const fetchProducts = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
     try {
       const response = await PrismaAPIRequest(
         "/inventory/products",
-        "GET",
-        {}
+        "POST",
+        formData
       )
+
       if (!response.ok) {
-        throw new Error('Failed to fetch products')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to add product')
       }
-      const data = await response.json()
-      setProducts(data)
+
+      setOpen(false)
+      setFormData({
+        name: "",
+        sku: "",
+        barcode: "",
+        price: "",
+        cost_price: "",
+        quantity: "",
+        low_stock_threshold: "",
+        category_id: "",
+        color: "",
+        material: "",
+        size: "",
+        final_selling_price: "",
+        description: "",
+        variant_1: "",
+        variant_2: "",
+        image_url: ""
+      })
+      onProductAdded()
     } catch (error) {
-      console.error('Error fetching products:', error)
-      setError('Failed to load products')
+      setError(error instanceof Error ? error.message : 'An error occurred')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    fetchProducts()
-  }, [])
-
-  const handleProductAdded = () => {
-    // Refresh the products list
-    fetchProducts()
-  }
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Handle form submission
-    console.log(formData)
-    setIsModalOpen(false)
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }))
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-2xl font-bold text-muted-foreground">Products & Services</h1>
-        <ChevronRight className="w-6 h-6 text-pink-500" />
-      </div>
-
-      <div className="border-b mb-6">
-        <nav className="flex gap-8">
-          <Button variant="link" className="text-blue-600 relative h-10 px-0 font-normal">
-            Items
-            <span className="ml-1 text-xs bg-neutral-100 px-1.5 py-0.5 rounded">1</span>
-          </Button>
-          <Button variant="link" className= "h-10 px-0 font-normal text-muted-foreground">
-            Categories
-          </Button>
-          <Button variant="link" className="text-gray-500 h-10 px-0 font-normal">
-            Groups
-          </Button>
-          <Button variant="link" className="text-gray-500 h-10 px-0 font-normal">
-            Price Lists
-          </Button>
-          <Button variant="link" className="text-gray-500 h-10 px-0 font-normal">
-            Deleted
-          </Button>
-        </nav>
-      </div>
-
-      <div className="flex gap-4 mb-8">
-        <div className="flex-1 flex gap-2">
-          <div className="relative flex-1">
-            <Input placeholder="Search products, category, description" className="pl-8" />
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="absolute left-2.5 top-2.5 h-5 w-5 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          {/* <Select>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select Category" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="electronics">Electronics</SelectItem>
-              <SelectItem value="clothing">Clothing</SelectItem>
-            </SelectContent>
-          </Select> */}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon">
-            <SlidersHorizontal className="h-4 w-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2 text-muted-foreground">
-                Actions
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white">
-              <DropdownMenuItem className="text-muted-foreground">Import</DropdownMenuItem>
-              <DropdownMenuItem className="text-muted-foreground">Export</DropdownMenuItem>
-              <DropdownMenuItem className="text-muted-foreground">Print</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-          >
-            + Add Product
-          </Button>
-        </div>
-      </div>
-
-      <div className="rounded-lg border">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b bg-neutral-50">
-              <th className="text-left p-4 font-medium text-gray-500">Item</th>
-              <th className="text-left p-4 font-medium text-gray-500">Qty</th>
-              <th className="text-left p-4 font-medium text-gray-500">Selling Price (Disc %)</th>
-              <th className="text-left p-4 font-medium text-gray-500">Purchase Price</th>
-              <th className="w-10"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={5} className="text-center p-4">Loading products...</td>
-              </tr>
-            ) : error ? (
-              <tr>
-                <td colSpan={5} className="text-center p-4 text-red-500">{error}</td>
-              </tr>
-            ) : products.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center p-4">No products found</td>
-              </tr>
-            ) : (
-              products.map((product) => (
-                <tr key={product.product_id} className="border-b">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 bg-pink-50">
-                        <AvatarFallback className="text-pink-500">
-                          {product.name.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium text-muted-foreground">{product.name}</div>
-                        <div className="text-sm  text-muted-foreground">{product.sku}</div>
-                      </div>
-                      <Button variant="outline" size="sm" className="ml-2 text-muted-foreground">
-                        + Variants
-                      </Button>
-                    </div>
-                  </td>
-                  <td className="p-4 text-muted-foreground">{product.quantity}</td>
-                  <td className="p-4 text-muted-foreground">₹{parseFloat(product.price).toFixed(2)}</td>
-                  <td className="p-4 text-muted-foreground">₹{parseFloat(product.cost_price).toFixed(2)}</td>
-                  <td className="p-4">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {isModalOpen && (
-        <Modal
-          title="Add New Product"
-          onClose={() => setIsModalOpen(false)}
-          overlayModal={false}
-          contentClassName="max-w-4xl"
-          alignment="top"
-      >
-        <Tabs defaultValue="basic" className="w-full mt-4 overflow-y-auto">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+          <Plus className="h-4 w-4" />
+          Add Product
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+        <DialogHeader className="bg-white border-b pb-4">
+          <DialogTitle className="text-2xl font-bold text-gray-900">Add New Product</DialogTitle>
+        </DialogHeader>
+        <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-4 bg-gray-100 p-1 rounded-lg">
             <TabsTrigger 
               value="basic" 
@@ -459,7 +301,7 @@ export default function ProductsPage() {
               </Card>
             </TabsContent>
 
-            <TabsContent value="details" className="mt-4 overflow-y-auto">
+            <TabsContent value="details" className="mt-4">
               <Card className="bg-white shadow-sm">
                 <CardHeader className="bg-gray-50 border-b">
                   <CardTitle className="text-gray-900">Product Details</CardTitle>
@@ -567,7 +409,7 @@ export default function ProductsPage() {
               <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => setOpen(false)}
                 className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
               >
                 Cancel
@@ -592,9 +434,7 @@ export default function ProductsPage() {
             </div>
           </form>
         </Tabs>
-      </Modal>
-      )}
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
-
