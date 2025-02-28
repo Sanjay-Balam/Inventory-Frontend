@@ -1,5 +1,6 @@
 "use client"
 
+import { PrismaAPIRequest } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -8,11 +9,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, ChevronRight, MoreHorizontal, Plus, SlidersHorizontal } from "lucide-react"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { useEffect, useState } from "react"
-<<<<<<< HEAD
-import { AddProductDialog } from "@/components/ui/model"
-import { PrismaAPIRequest } from "@/lib/utils"
-=======
-import { AddProductDialog } from "@/components/ui/model-new"
 import { Modal } from "@/components/ui/modal"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
@@ -20,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { Package, DollarSign, Boxes, Palette,  } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Image } from "lucide-react"
->>>>>>> 903ea0f8341c9dc14bfbb4cb6001cdaae8fb336a
 
 interface Product {
   product_id: number
@@ -61,11 +56,8 @@ export default function ProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await PrismaAPIRequest(
-        "/inventory/products",
-        "GET",
-        {}
-      )
+      const response = await fetch("http://localhost:3000/api/inventory/products");
+      
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
@@ -93,11 +85,28 @@ export default function ProductsPage() {
     setFormData(prev => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Handle form submission
-    console.log(formData)
-    setIsModalOpen(false)
+    try {
+      const response = await fetch("http://localhost:3000/api/inventory/products", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add product');
+      }
+
+      const data = await response.json();
+      handleProductAdded();
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error adding product:', error);
+      setError('Failed to add product');
+    }
   }
 
   return (
@@ -343,14 +352,13 @@ export default function ProductsPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="barcode" className="text-muted-foreground">Barcode *</Label>
+                      <Label htmlFor="barcode" className="text-muted-foreground">Barcode</Label>
                       <Input
                         id="barcode"
                         name="barcode"
-                        placeholder="Enter barcode"
+                        placeholder="Enter barcode (optional)"
                         value={formData.barcode}
                         onChange={handleChange}
-                        required
                         className="border-gray-300 text-muted-foreground"
                       />
                     </div>

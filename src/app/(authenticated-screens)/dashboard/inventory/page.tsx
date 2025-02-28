@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { PrismaAPIRequest } from "@/lib/utils"
+import { SellProductModal } from "@/components/SellProductModal"
 
 
 interface Product {
@@ -34,6 +35,8 @@ export default function InventoryPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState<string>("")
   const itemsPerPage = 10
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [isSellModalOpen, setIsSellModalOpen] = useState(false)
 
 
   const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number) => {
@@ -63,8 +66,15 @@ export default function InventoryPage() {
 
   const handleSellItem = (productId: number) => {
     const product = products.find(p => p.product_id === productId)
+    if (product) {
+      setSelectedProduct(product)
+      setIsSellModalOpen(true)
+    }
+  }
 
-    console.log("product",product)
+  const handleCloseSellModal = () => {
+    setIsSellModalOpen(false)
+    setSelectedProduct(null)
   }
 
   const fetchProducts = async () => {
@@ -326,6 +336,12 @@ export default function InventoryPage() {
           </div>
         </div>
       </div> */}
+
+      <SellProductModal
+        isOpen={isSellModalOpen}
+        onClose={handleCloseSellModal}
+        product={selectedProduct}
+      />
     </div>
   )
 }
