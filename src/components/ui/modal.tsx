@@ -61,7 +61,7 @@ export const Modal = ({
       >
 
         {title && (
-          <div className="flex items-center justify-between ">
+          <div className={cn("flex items-center justify-between ")}>
             <p className="text-sm font-normal text-[#8A8A8A]">{title}</p>
             <div
               className="cursor-pointer"

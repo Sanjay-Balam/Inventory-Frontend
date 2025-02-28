@@ -11,6 +11,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { PrismaAPIRequest } from "@/lib/utils"
 import { SellProductModal } from "@/components/SellProductModal"
 
+import { Modal } from "@/components/ui/modal"
+import { useForm, Controller } from "react-hook-form"
 
 interface Product {
   product_id: number
@@ -33,13 +35,13 @@ export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [showModal, setShowModal] = useState<boolean>(false);
   const itemsPerPage = 10
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isSellModalOpen, setIsSellModalOpen] = useState(false)
 
-
-  const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number) => {
+  const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number, channel_id: number) => {
     try {
       const stock = action === 'in' ? currentStock + 1 : currentStock - 1;
       
@@ -48,7 +50,7 @@ export default function InventoryPage() {
         "POST",
         {
           product_id: productId,
-          channel_id: 1,
+          channel_id: channel_id,
           stock: stock
         }
       )
@@ -80,6 +82,7 @@ export default function InventoryPage() {
   const fetchProducts = async () => {
     try {
       const response = await PrismaAPIRequest("/inventory/products", "GET");
+      console.log("response of products",response)
       setProducts(response || []);
     } catch (error) {
       console.error("Failed to fetch products:", error)
@@ -97,30 +100,88 @@ export default function InventoryPage() {
     product.product_id.toString().includes(searchTerm)
   ) || []
 
+  interface SellItemFormData {
+    customerName?: string;
+    phoneNumber?: string;
+    email?: string;
+    quantity: number;
+    salesChannel: string;
+    sellingPrice: string;
+    paymentMethod: string;
+  }
+
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+
+  const { control, handleSubmit, setValue, watch, reset } = useForm<SellItemFormData>({
+    defaultValues: {
+      customerName: '',
+      phoneNumber: '',
+      email: '',
+      quantity: 1,
+      salesChannel: 'Store',
+      sellingPrice: '',
+      paymentMethod: 'Cash'
+    }
+  });
+
+  // Set selling price when product is selected
+  useEffect(() => {
+    if (selectedProduct) {
+      setValue('sellingPrice', selectedProduct.price);
+    }
+  }, [selectedProduct, setValue]);
+
+  const watchQuantity = watch('quantity');
+  const watchSellingPrice = watch('sellingPrice');
+
+  const onSubmit = async (data: SellItemFormData) => {
+    if (!selectedProduct) return;
+    
+    try {
+      // Implement your API call to process the sale
+      // Example:
+      // const response = await PrismaAPIRequest("/sales/create", "POST", {
+      //   product_id: selectedProduct.product_id,
+      //   customer_name: data.customerName,
+      //   ...other form data
+      // });
+      
+      // Update inventory after successful sale
+      await handleStockUpdate(
+        selectedProduct.product_id,
+        'out',
+        selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0,
+        selectedProduct.inventory[0]?.inventory_id || 0
+      );
+      
+      setShowModal(false);
+      reset(); // Reset form
+      fetchProducts(); // Refresh product list
+    } catch (error) {
+      console.error("Failed to process sale:", error);
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-6">
-        {/* <div className="bg-blue-50 p-4 rounded-lg flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Enjoy customizable templates, GST reports, and premium support! ⭐⭐⭐</span>
-          </div>
-          <Button variant="default" size="sm" className="bg-white text-black hover:bg-gray-100">
-            Subscribe Now! 🚀
-          </Button>
-        </div> */}
 
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Inventory</h1>
           <div className="flex gap-2">
-            <Button variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 border-0">
-              <Download className="w-4 h-4 mr-2" />
-              Bulk Items Stock In
-            </Button>
-            <Button variant="outline" className="bg-red-50 text-red-700 hover:bg-red-100 border-0">
-              <Download className="w-4 h-4 mr-2" />
-              Bulk Items Stock Out
-            </Button>
+            <div onClick={() => setShowModal(true)}>
+              <Button variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 border-0">
+                <Download className="w-4 h-4 mr-2" />
+                Bulk Items Stock In
+              </Button>
+            </div>
+            <div>
+              <Button variant="outline" className="bg-red-50 text-red-700 hover:bg-red-100 border-0">
+                <Download className="w-4 h-4 mr-2" />
+                Bulk Items Stock Out
+              </Button>
+            </div>
             <Button className="bg-blue-600">
               <Lock className="w-4 h-4 mr-2" />
               Manage Warehouses
@@ -192,28 +253,7 @@ export default function InventoryPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Select Category" className="text-muted-foreground" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="electronics">Electronics</SelectItem>
-            <SelectItem value="clothing">Clothing</SelectItem>
-          </SelectContent>
-        </Select>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              Actions
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem>Export</DropdownMenuItem>
-            <DropdownMenuItem>Print</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+
         <Button className="bg-blue-600">
           <Download className="mr-2 h-4 w-4" />
           Download Stock Report
@@ -263,7 +303,8 @@ export default function InventoryPage() {
                       onClick={() => handleStockUpdate(
                         product.product_id, 
                         'in', 
-                        product.inventory[0]?.stock || product.quantity || 0
+                        product.inventory[0]?.stock || product.quantity || 0,
+                        product.inventory[0]?.channel_id || 0
                       )}
                     >
                       Stock In
@@ -275,7 +316,8 @@ export default function InventoryPage() {
                       onClick={() => handleStockUpdate(
                         product.product_id, 
                         'out', 
-                        product.inventory[0]?.stock || product.quantity || 0
+                        product.inventory[0]?.stock || product.quantity || 0,
+                        product.inventory[0]?.channel_id || 0
                       )}
                     >
                       Stock Out
