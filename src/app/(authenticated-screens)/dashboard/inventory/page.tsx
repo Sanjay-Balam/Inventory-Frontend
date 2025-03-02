@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { PrismaAPIRequest } from "@/lib/utils"
+import { SellProductModal } from "@/components/SellProductModal"
+
 import { Modal } from "@/components/ui/modal"
 import { useForm, Controller } from "react-hook-form"
 import { TabSelector } from "@/components/ui/tab-selector"
@@ -37,6 +39,8 @@ export default function InventoryPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [showModal, setShowModal] = useState<boolean>(false);
   const itemsPerPage = 10
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [isSellModalOpen, setIsSellModalOpen] = useState(false)
 
   const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number, channel_id: number) => {
     try {
@@ -65,8 +69,15 @@ export default function InventoryPage() {
 
   const handleSellItem = (productId: number) => {
     const product = products.find(p => p.product_id === productId)
-    setSelectedProduct(product)
-    setShowModal(true)
+    if (product) {
+      setSelectedProduct(product)
+      setIsSellModalOpen(true)
+    }
+  }
+
+  const handleCloseSellModal = () => {
+    setIsSellModalOpen(false)
+    setSelectedProduct(null)
   }
 
   const fetchProducts = async () => {
@@ -100,7 +111,6 @@ export default function InventoryPage() {
     paymentMethod: string;
   }
 
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const { control, handleSubmit, setValue, watch, reset } = useForm<SellItemFormData>({
     defaultValues: {
@@ -282,7 +292,7 @@ export default function InventoryPage() {
                         product.product_id, 
                         'in', 
                         product.inventory[0]?.stock || product.quantity || 0,
-                        product.inventory[0]?.channel_id || 0
+                        product.inventory[0]?.inventory_id || 0
                       )}
                     >
                       Stock In
@@ -295,7 +305,7 @@ export default function InventoryPage() {
                         product.product_id, 
                         'out', 
                         product.inventory[0]?.stock || product.quantity || 0,
-                        product.inventory[0]?.channel_id || 0
+                        product.inventory[0]?.inventory_id || 0
                       )}
                     >
                       Stock Out
