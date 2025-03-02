@@ -37,7 +37,7 @@ export default function InventoryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showModal, setShowModal] = useState<boolean>(false);
+  const [showModalBulkStockIn, setShowModalBulkStockIn] = useState<boolean>(false);
   const itemsPerPage = 10
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isSellModalOpen, setIsSellModalOpen] = useState(false)
@@ -139,7 +139,7 @@ export default function InventoryPage() {
     try {
       console.log("data of sell item:",data)
       
-      setShowModal(false);
+      setIsSellModalOpen(false);
       reset(); // Reset form
       fetchProducts(); // Refresh product list
     } catch (error) {
@@ -158,7 +158,7 @@ export default function InventoryPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Inventory</h1>
           <div className="flex gap-2">
-            <div onClick={() => setShowModal(true)}>
+            <div onClick={() => setShowModalBulkStockIn(true)}>
               <Button variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 border-0">
                 <Download className="w-4 h-4 mr-2" />
                 Bulk Items Stock In
@@ -367,11 +367,11 @@ export default function InventoryPage() {
         </div>
       </div> */}
 
-      {showModal && selectedProduct && (
+      {isSellModalOpen && selectedProduct && (
         <Modal
           title="Sell Items"
           onClose={() => {
-            setShowModal(false);
+            setIsSellModalOpen(false);
             reset();
           }}
           overlayModal={false}
@@ -611,7 +611,7 @@ export default function InventoryPage() {
                 type="button" 
                 variant="outline" 
                 onClick={() => {
-                  setShowModal(false);
+                  setIsSellModalOpen(false);
                   reset();
                 }}
                 className="text-muted-foreground"
