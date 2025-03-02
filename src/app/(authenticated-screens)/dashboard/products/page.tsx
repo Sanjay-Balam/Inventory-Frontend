@@ -302,341 +302,397 @@ export default function ProductsPage() {
           title="Add New Product"
           onClose={() => setIsModalOpen(false)}
           overlayModal={false}
-          contentClassName="max-w-4xl"
+          contentClassName="max-w-5xl"
           alignment="top"
-      >
-        <Tabs defaultValue="basic" className="w-full mt-4 overflow-y-auto">
-          <TabsList className="grid w-full grid-cols-4 bg-gray-100 p-1 rounded-lg">
-            <TabsTrigger 
-              value="basic" 
-              className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-600"
-            >
-              <Package className="h-4 w-4" />
-              Basic Info
-            </TabsTrigger>
-            <TabsTrigger 
-              value="pricing" 
-              className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-600"
-            >
-              <DollarSign className="h-4 w-4" />
-              Pricing
-            </TabsTrigger>
-            <TabsTrigger 
-              value="inventory" 
-              className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-600"
-            >
-              <Boxes className="h-4 w-4" />
-              Inventory
-            </TabsTrigger>
-            <TabsTrigger 
-              value="details" 
-              className="flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:text-blue-600"
-            >
-              <Palette className="h-4 w-4" />
-              Details
-            </TabsTrigger>
-          </TabsList>
-
-          <form onSubmit={handleSubmit}>
-            <TabsContent value="basic" className="mt-4">
-              <Card className="bg-white shadow-sm">
-                <CardHeader className="bg-gray-50 border-b">
-                  <CardTitle className="text-gray-900">Basic Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 bg-white p-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="name" className="text-muted-foreground">Product Name *</Label>
-                      <Input
-                        id="name"
-                        name="name"
-                        placeholder="Enter product name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        className="border-gray-300 focus:ring-blue-500 text-muted-foreground"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="category_id" className="text-muted-foreground">Category *</Label>
-                      <Select 
-                        name="category_id" 
-                        value={formData.category_id}
-                        onValueChange={(value) => handleChange({ 
-                          target: { name: 'category_id', value } 
-                        } as React.ChangeEvent<HTMLInputElement>)}
-                      >
-                        <SelectTrigger className="border-gray-300">
-                          <SelectValue placeholder="Select category" className="text-muted-foreground" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1" className="text-muted-foreground">Category 1</SelectItem>
-                          <SelectItem value="2">Category 2</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="sku" className="text-muted-foreground">SKU *</Label>
-                      <Input
-                        id="sku"
-                        name="sku"
-                        placeholder="Enter SKU"
-                        value={formData.sku}
-                        onChange={handleChange}
-                        required
-                        className="border-gray-300 text-muted-foreground"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="barcode" className="text-muted-foreground">Barcode</Label>
-                      <Input
-                        id="barcode"
-                        name="barcode"
-                        placeholder="Enter barcode (optional)"
-                        value={formData.barcode}
-                        onChange={handleChange}
-                        className="border-gray-300 text-muted-foreground"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="pricing" className="mt-4">
-              <Card className="bg-white shadow-sm">
-                <CardHeader className="bg-gray-50 border-b">
-                  <CardTitle className="text-gray-900">Pricing Information</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 bg-white p-6">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="cost_price" className="text-muted-foreground">Cost Price *</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5">₹</span>
-                        <Input
-                          id="cost_price"
-                          name="cost_price"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={formData.cost_price}
-                          onChange={handleChange}
-                          required
-                          className="pl-8 border-gray-300"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="price" className="text-muted-foreground">Selling Price *</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5">₹</span>
-                        <Input
-                          id="price"
-                          name="price"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={formData.price}
-                          onChange={handleChange}
-                          required
-                          className="pl-8 border-gray-300"
-                        />
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="final_selling_price" className="text-muted-foreground">Final Price</Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2.5">₹</span>
-                        <Input
-                          id="final_selling_price"
-                          name="final_selling_price"
-                          type="number"
-                          step="0.01"
-                          placeholder="0.00"
-                          value={formData.final_selling_price}
-                          onChange={handleChange}
-                          className="pl-8 border-gray-300"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="inventory" className="mt-4">
-              <Card className="bg-white shadow-sm">
-                <CardHeader className="bg-gray-50 border-b">
-                  <CardTitle className="text-gray-900">Inventory Management</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 bg-white p-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="quantity" className="text-muted-foreground">Initial Stock *</Label>
-                      <Input
-                        id="quantity"
-                        name="quantity"
-                        type="number"
-                        placeholder="Enter quantity"
-                        value={formData.quantity}
-                        onChange={handleChange}
-                        required
-                        className="border-gray-300"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="low_stock_threshold" className="text-muted-foreground" >Low Stock Alert *</Label>
-                      <Input
-                        id="low_stock_threshold"
-                        name="low_stock_threshold"
-                        type="number"
-                        placeholder="Set threshold"
-                        value={formData.low_stock_threshold}
-                        onChange={handleChange}
-                        required
-                        className="border-gray-300"
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="details" className="mt-4 overflow-y-auto">
-              <Card className="bg-white shadow-sm">
-                <CardHeader className="bg-gray-50 border-b">
-                  <CardTitle className="text-gray-900">Product Details</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4 bg-white p-6">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="color" className="text-muted-foreground">Color</Label>
-                      <Input
-                        id="color"
-                        name="color"
-                        placeholder="Enter color"
-                        value={formData.color}
-                        onChange={handleChange}
-                        className="border-gray-300"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="material" className="text-muted-foreground">Material</Label>
-                      <Input
-                        id="material"
-                        name="material"
-                        placeholder="Enter material"
-                        value={formData.material}
-                        onChange={handleChange}
-                        className="border-gray-300"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="size" className="text-muted-foreground">Size</Label>
-                      <Input
-                        id="size"
-                        name="size"
-                        placeholder="Enter size"
-                        value={formData.size}
-                        onChange={handleChange}
-                        className="border-gray-300"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="variant_1" className="text-muted-foreground">Variant 1</Label>
-                      <Input
-                        id="variant_1"
-                        name="variant_1"
-                        placeholder="Enter variant"
-                        value={formData.variant_1}
-                        onChange={handleChange}
-                        className="border-gray-300"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="variant_2" className="text-muted-foreground">Variant 2</Label>
-                      <Input
-                        id="variant_2"
-                        name="variant_2"
-                        placeholder="Enter variant"
-                        value={formData.variant_2}
-                        onChange={handleChange}
-                        className="border-gray-300"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description" className="text-muted-foreground">Description</Label>
-                    <Textarea
-                      id="description"
-                      name="description"
-                      placeholder="Enter product description"
-                      value={formData.description}
-                      onChange={handleChange}
-                      rows={3}
-                      className="border-gray-300"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="image_url" className="text-muted-foreground">Image URL</Label>
-                    <div className="relative">
-                      <Input
-                        id="image_url"
-                        name="image_url"
-                        placeholder="Enter image URL"
-                        value={formData.image_url}
-                        onChange={handleChange}
-                        className="pl-10 border-gray-300"
-                      />
-                      <Image className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {error && (
-              <div className="mt-4 p-3 rounded-md bg-red-50 border border-red-200">
-                <p className="text-red-600 text-sm">{error}</p>
+        >
+          <div className="flex h-[80vh] overflow-hidden">
+            {/* Sidebar Navigation */}
+            <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
+              <div className="space-y-1">
+                <button
+                  onClick={() => document.getElementById('basic-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
+                >
+                  <Package className="h-5 w-5 text-blue-600" />
+                  <span>Basic Information</span>
+                </button>
+                <button
+                  onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
+                >
+                  <DollarSign className="h-5 w-5 text-green-600" />
+                  <span>Pricing</span>
+                </button>
+                <button
+                  onClick={() => document.getElementById('inventory-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
+                >
+                  <Boxes className="h-5 w-5 text-amber-600" />
+                  <span>Inventory</span>
+                </button>
+                <button
+                  onClick={() => document.getElementById('details-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
+                >
+                  <Palette className="h-5 w-5 text-purple-600" />
+                  <span>Details</span>
+                </button>
               </div>
-            )}
 
-            <div className="mt-6 flex justify-end gap-3 border-t pt-4 bg-gray-50 px-6">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsModalOpen(false)}
-                className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                disabled={loading}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {loading ? (
-                  <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Adding...
-                  </>
-                ) : (
-                  'Add Product'
-                )}
-              </Button>
+              <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                <h3 className="text-sm font-medium text-blue-800 mb-2">Tips</h3>
+                <p className="text-xs text-blue-700">
+                  Complete all required fields marked with * for successful product creation. Adding detailed information helps with inventory management and sales tracking.
+                </p>
+              </div>
             </div>
-          </form>
-        </Tabs>
-      </Modal>
+
+            {/* Main Content */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <form onSubmit={handleProductSubmit} className="space-y-8">
+                {/* Basic Information Section */}
+                <section id="basic-section" className="scroll-mt-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Package className="h-6 w-6 text-blue-600" />
+                    <h2 className="text-xl font-semibold text-gray-800">Basic Information</h2>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="p-6 space-y-6">
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="name" className="text-sm font-medium text-gray-700">
+                            Product Name <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="name"
+                            name="name"
+                            placeholder="Enter product name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            required
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="category_id" className="text-sm font-medium text-gray-700">
+                            Category <span className="text-red-500">*</span>
+                          </Label>
+                          <Select 
+                            name="category_id" 
+                            value={formData.category_id}
+                            onValueChange={(value) => handleChange({ 
+                              target: { name: 'category_id', value } 
+                            } as React.ChangeEvent<HTMLInputElement>)}
+                          >
+                            <SelectTrigger className="border-gray-300 rounded-lg">
+                              <SelectValue placeholder="Select category" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="1">Category 1</SelectItem>
+                              <SelectItem value="2">Category 2</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="sku" className="text-sm font-medium text-gray-700">
+                            SKU <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="sku"
+                            name="sku"
+                            placeholder="Enter SKU"
+                            value={formData.sku}
+                            onChange={handleChange}
+                            required
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                          <p className="text-xs text-gray-500">Unique identifier for your product</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="barcode" className="text-sm font-medium text-gray-700">
+                            Barcode
+                          </Label>
+                          <Input
+                            id="barcode"
+                            name="barcode"
+                            placeholder="Enter barcode (optional)"
+                            value={formData.barcode}
+                            onChange={handleChange}
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                          <p className="text-xs text-gray-500">Leave empty to auto-generate</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Pricing Section */}
+                <section id="pricing-section" className="scroll-mt-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <DollarSign className="h-6 w-6 text-green-600" />
+                    <h2 className="text-xl font-semibold text-gray-800">Pricing Information</h2>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="p-6 space-y-6">
+                      <div className="grid grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="cost_price" className="text-sm font-medium text-gray-700">
+                            Cost Price <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
+                            <Input
+                              id="cost_price"
+                              name="cost_price"
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={formData.cost_price}
+                              onChange={handleChange}
+                              required
+                              className="pl-8 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">Purchase price from supplier</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="price" className="text-sm font-medium text-gray-700">
+                            Selling Price <span className="text-red-500">*</span>
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
+                            <Input
+                              id="price"
+                              name="price"
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={formData.price}
+                              onChange={handleChange}
+                              required
+                              className="pl-8 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">Regular selling price</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="final_selling_price" className="text-sm font-medium text-gray-700">
+                            Final Price
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
+                            <Input
+                              id="final_selling_price"
+                              name="final_selling_price"
+                              type="number"
+                              step="0.01"
+                              placeholder="0.00"
+                              value={formData.final_selling_price}
+                              onChange={handleChange}
+                              className="pl-8 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">Price after discounts</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Inventory Section */}
+                <section id="inventory-section" className="scroll-mt-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Boxes className="h-6 w-6 text-amber-600" />
+                    <h2 className="text-xl font-semibold text-gray-800">Inventory Management</h2>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="p-6 space-y-6">
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="quantity" className="text-sm font-medium text-gray-700">
+                            Initial Stock <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="quantity"
+                            name="quantity"
+                            type="number"
+                            placeholder="Enter quantity"
+                            value={formData.quantity}
+                            onChange={handleChange}
+                            required
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                          <p className="text-xs text-gray-500">Current available quantity</p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="low_stock_threshold" className="text-sm font-medium text-gray-700">
+                            Low Stock Alert <span className="text-red-500">*</span>
+                          </Label>
+                          <Input
+                            id="low_stock_threshold"
+                            name="low_stock_threshold"
+                            type="number"
+                            placeholder="Set threshold"
+                            value={formData.low_stock_threshold}
+                            onChange={handleChange}
+                            required
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                          <p className="text-xs text-gray-500">Get notified when stock falls below this value</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {/* Details Section */}
+                <section id="details-section" className="scroll-mt-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Palette className="h-6 w-6 text-purple-600" />
+                    <h2 className="text-xl font-semibold text-gray-800">Product Details</h2>
+                  </div>
+                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                    <div className="p-6 space-y-6">
+                      <div className="grid grid-cols-3 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="color" className="text-sm font-medium text-gray-700">Color</Label>
+                          <Input
+                            id="color"
+                            name="color"
+                            placeholder="Enter color"
+                            value={formData.color}
+                            onChange={handleChange}
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="material" className="text-sm font-medium text-gray-700">Material</Label>
+                          <Input
+                            id="material"
+                            name="material"
+                            placeholder="Enter material"
+                            value={formData.material}
+                            onChange={handleChange}
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="size" className="text-sm font-medium text-gray-700">Size</Label>
+                          <Input
+                            id="size"
+                            name="size"
+                            placeholder="Enter size"
+                            value={formData.size}
+                            onChange={handleChange}
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-6">
+                        <div className="space-y-2">
+                          <Label htmlFor="variant_1" className="text-sm font-medium text-gray-700">Variant 1</Label>
+                          <Input
+                            id="variant_1"
+                            name="variant_1"
+                            placeholder="Enter variant"
+                            value={formData.variant_1}
+                            onChange={handleChange}
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="variant_2" className="text-sm font-medium text-gray-700">Variant 2</Label>
+                          <Input
+                            id="variant_2"
+                            name="variant_2"
+                            placeholder="Enter variant"
+                            value={formData.variant_2}
+                            onChange={handleChange}
+                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="description" className="text-sm font-medium text-gray-700">Description</Label>
+                        <Textarea
+                          id="description"
+                          name="description"
+                          placeholder="Enter product description"
+                          value={formData.description}
+                          onChange={handleChange}
+                          rows={3}
+                          className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="image_url" className="text-sm font-medium text-gray-700">Image URL</Label>
+                        <div className="relative">
+                          <Image className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
+                          <Input
+                            id="image_url"
+                            name="image_url"
+                            placeholder="Enter image URL"
+                            value={formData.image_url}
+                            onChange={handleChange}
+                            className="pl-10 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                {error && (
+                  <div className="p-4 rounded-lg bg-red-50 border border-red-200">
+                    <div className="flex items-center gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <p className="text-sm font-medium text-red-800">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-3 mt-8">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setIsModalOpen(false)}
+                    className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                  >
+                    {loading ? (
+                      <div className="flex items-center">
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Adding Product...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                        <span>Add Product</span>
+                      </div>
+                    )}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   )
