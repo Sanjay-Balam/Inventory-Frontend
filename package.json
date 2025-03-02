@@ -21,6 +21,7 @@
     "@radix-ui/react-toast": "^1.2.6",
     "@types/express": "^5.0.0",
     "@types/recharts": "^1.8.29",
+    "bwip-js": "^4.5.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.475.0",

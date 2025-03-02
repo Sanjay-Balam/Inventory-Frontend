@@ -110,7 +110,6 @@ export default function InventoryPage() {
     paymentMethod: string;
   }
 
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
   const { control, handleSubmit, setValue, watch, reset } = useForm<SellItemFormData>({
     defaultValues: {
@@ -304,7 +303,7 @@ export default function InventoryPage() {
                         product.product_id, 
                         'in', 
                         product.inventory[0]?.stock || product.quantity || 0,
-                        product.inventory[0]?.channel_id || 0
+                        product.inventory[0]?.inventory_id || 0
                       )}
                     >
                       Stock In
@@ -317,7 +316,7 @@ export default function InventoryPage() {
                         product.product_id, 
                         'out', 
                         product.inventory[0]?.stock || product.quantity || 0,
-                        product.inventory[0]?.channel_id || 0
+                        product.inventory[0]?.inventory_id || 0
                       )}
                     >
                       Stock Out

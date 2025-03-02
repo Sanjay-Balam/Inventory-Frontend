@@ -109,6 +109,42 @@ export default function ProductsPage() {
     }
   }
 
+  // Add this function in your ProductsPage component
+  const handleProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+        const response = await fetch("http://localhost:3000/api/inventory/products", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(formData)
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to add product');
+        }
+
+        const data = await response.json();
+        
+        // Download barcode image
+        if (data.barcodeUrl) {
+            const link = document.createElement('a');
+            link.href = data.barcodeUrl;
+            link.download = `barcode_${data.sku}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        handleProductAdded();
+        setIsModalOpen(false);
+    } catch (error) {
+        console.error('Error adding product:', error);
+        setError('Failed to add product');
+    }
+};
+
   return (
     <div className="p-6">
       <div className="flex items-center gap-2 mb-6">
