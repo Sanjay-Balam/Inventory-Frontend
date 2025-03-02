@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { PrismaAPIRequest } from "@/lib/utils"
 import { Modal } from "@/components/ui/modal"
 import { useForm, Controller } from "react-hook-form"
+import { TabSelector } from "@/components/ui/tab-selector"
 
 interface Product {
   product_id: number
@@ -124,24 +125,9 @@ export default function InventoryPage() {
   const watchSellingPrice = watch('sellingPrice');
 
   const onSubmit = async (data: SellItemFormData) => {
-    if (!selectedProduct) return;
     
     try {
-      // Implement your API call to process the sale
-      // Example:
-      // const response = await PrismaAPIRequest("/sales/create", "POST", {
-      //   product_id: selectedProduct.product_id,
-      //   customer_name: data.customerName,
-      //   ...other form data
-      // });
-      
-      // Update inventory after successful sale
-      await handleStockUpdate(
-        selectedProduct.product_id,
-        'out',
-        selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0,
-        selectedProduct.inventory[0]?.inventory_id || 0
-      );
+      console.log("data of sell item:",data)
       
       setShowModal(false);
       reset(); // Reset form
@@ -150,6 +136,9 @@ export default function InventoryPage() {
       console.error("Failed to process sale:", error);
     }
   };
+
+  // Add state to track customer type
+  const [customerType, setCustomerType] = useState("new");
 
   return (
     <div className="p-6 space-y-6">
@@ -407,15 +396,21 @@ export default function InventoryPage() {
             <div className="border rounded-lg p-6">
               <h2 className="text-xl font-bold mb-4 text-muted-foreground">Customer Information</h2>
               
-              {/* Customer Type Tabs */}
-              <div className="grid grid-cols-2 gap-2 mb-4">
-                <button type="button" className="p-4 bg-gray-100 rounded-lg text-center text-muted-foreground">
-                  Existing Customer
-                </button>
-                <button type="button" className="p-4 bg-white rounded-lg text-center border text-muted-foreground">
-                  New Customer
-                </button>
-              </div>
+              {/* Customer Type Tabs - Using TabSelector component */}
+              <TabSelector
+                options={[
+                  { id: "existing", label: "Existing Customer" },
+                  { id: "new", label: "New Customer" }
+                ]}
+                defaultValue="new"
+                value={customerType}
+                onChange={(value) => setCustomerType(value)}
+                variant="default"
+                fullWidth
+                className="mb-4"
+                activeTabClassName="text-muted-foreground"
+                inactiveTabClassName="text-muted-foreground"
+              />
               
               {/* Customer Details Form */}
               <div className="space-y-4">
@@ -440,36 +435,39 @@ export default function InventoryPage() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Phone Number (Optional)</label>
-                    <Controller
-                      name="phoneNumber"
-                      control={control}
-                      render={({ field }) => (
-                        <Input 
-                          {...field}
-                          placeholder="Enter phone number" 
-                          className="text-muted-foreground"
-                        />
-                      )}
-                    />
+                {/* Only show phone and email fields for new customers */}
+                {customerType === "new" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-muted-foreground">Phone Number (Optional)</label>
+                      <Controller
+                        name="phoneNumber"
+                        control={control}
+                        render={({ field }) => (
+                          <Input 
+                            {...field}
+                            placeholder="Enter phone number" 
+                            className="text-muted-foreground"
+                          />
+                        )}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-muted-foreground">Email (Optional)</label>
+                      <Controller
+                        name="email"
+                        control={control}
+                        render={({ field }) => (
+                          <Input 
+                            {...field}
+                            placeholder="Enter email address" 
+                            className="text-muted-foreground"
+                          />
+                        )}
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1 text-muted-foreground">Email (Optional)</label>
-                    <Controller
-                      name="email"
-                      control={control}
-                      render={({ field }) => (
-                        <Input 
-                          {...field}
-                          placeholder="Enter email address" 
-                          className="text-muted-foreground"
-                        />
-                      )}
-                    />
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -527,7 +525,6 @@ export default function InventoryPage() {
                         <SelectContent className="bg-white z-50">
                           <SelectItem value="Store">Store</SelectItem>
                           <SelectItem value="Online">Online</SelectItem>
-                          <SelectItem value="Phone">Phone</SelectItem>
                         </SelectContent>
                       </Select>
                     )}
@@ -611,7 +608,7 @@ export default function InventoryPage() {
               >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-blue-600">
+              <Button type="submit" className="bg-blue-600" onClick={handleSubmit(onSubmit)}>
                 Complete Sale
               </Button>
             </div>
