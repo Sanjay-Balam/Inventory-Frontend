@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   BarChart3,
   Box,
@@ -16,6 +16,7 @@ import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recha
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { useProducts } from "@/hooks/useProducts"
 
 // Sample data for charts
 const salesData = [
@@ -82,7 +83,11 @@ const lowStockItems = [
 
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState("7d")
-
+  const { products, fetchProducts } = useProducts();
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+  console.log("products in dashboard",products)
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between space-y-2">
