@@ -57,11 +57,11 @@ export default function InventoryPage() {
       // Handle successful response
       if (response) {
         // Refresh the product list or update the UI
-        fetchProducts() // Your function to refresh the products list
+        fetchProducts()
       }
     } catch (error) {
       console.error("Failed to update stock:", error)
-      // Handle error (maybe show a toast notification)
+
     }
   }
 
