@@ -174,7 +174,6 @@ export default function InventoryPage() {
             </Button>
           </div>
         </div>
-
         <div className="text-sm">
           <Button variant="link" className="p-0 h-auto text-blue-600">
             Warehouse
