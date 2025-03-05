@@ -53,6 +53,8 @@ export default function ProductsPage() {
     image_url: "",
     final_selling_price: ""
   })
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [barcodeUrl, setBarcodeUrl] = useState<string | null>(null);
 
   const fetchProducts = async () => {
     try {
@@ -112,6 +114,11 @@ export default function ProductsPage() {
   // Add this function in your ProductsPage component
   const handleProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccessMessage(null);
+    setBarcodeUrl(null);
+    
     try {
         const response = await fetch("http://localhost:3000/api/inventory/products", {
             method: "POST",
@@ -121,27 +128,72 @@ export default function ProductsPage() {
             body: JSON.stringify(formData)
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to add product');
-        }
-
         const data = await response.json();
         
-        // Download barcode image
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to add product');
+        }
+        
+        // Set success message
+        setSuccessMessage(`Product "${data.name}" added successfully!`);
+        
+        // Handle barcode
         if (data.barcodeUrl) {
-            const link = document.createElement('a');
-            link.href = data.barcodeUrl;
-            link.download = `barcode_${data.sku}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            setBarcodeUrl(data.barcodeUrl);
+            
+            // Show success message with barcode info
+            setSuccessMessage(`Product "${data.name}" added successfully! A barcode has been generated.`);
+            
+            // Optional: Automatically download barcode
+            setTimeout(() => {
+                try {
+                    const link = document.createElement('a');
+                    link.href = data.barcodeUrl;
+                    link.download = `barcode_${data.sku}_${data.name ? data.name.toLowerCase().replace(/\s+/g, '-') : 'product'}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                } catch (downloadError) {
+                    console.error('Error downloading barcode:', downloadError);
+                    // Don't throw error here, just log it - the product was still created successfully
+                }
+            }, 1000);
+        } else if (data.error && data.error.includes('barcode')) {
+            // Product was created but there was a barcode-specific error
+            setSuccessMessage(`Product "${data.name}" added successfully, but there was an issue generating the barcode.`);
+            console.warn('Barcode generation issue:', data.error);
         }
 
+        // Reset form and refresh product list
         handleProductAdded();
-        setIsModalOpen(false);
+        
+        // Close modal after a delay to show success message
+        setTimeout(() => {
+            setIsModalOpen(false);
+            setFormData({
+                name: "",
+                category_id: "",
+                sku: "",
+                barcode: "",
+                cost_price: "",
+                price: "",
+                quantity: "",
+                low_stock_threshold: "",
+                color: "",
+                material: "",
+                size: "",
+                variant_1: "",
+                variant_2: "",
+                description: "",  
+                image_url: "",
+                final_selling_price: ""
+            });
+        }, 2000);
     } catch (error) {
         console.error('Error adding product:', error);
-        setError('Failed to add product');
+        setError(error instanceof Error ? error.message : 'Failed to add product');
+    } finally {
+        setLoading(false);
     }
 };
 
@@ -423,6 +475,46 @@ export default function ProductsPage() {
                           <p className="text-xs text-gray-500">Leave empty to auto-generate</p>
                         </div>
                       </div>
+                      
+                      {/* Barcode Preview Section */}
+                      <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div className="flex items-start gap-4">
+                          <div className="bg-white p-3 rounded-md border border-gray-300 flex items-center justify-center w-48 h-24">
+                            {formData.barcode ? (
+                              <div className="text-center">
+                                <div className="font-mono text-xs bg-gray-100 px-2 py-1 rounded mb-1">{formData.barcode}</div>
+                                <div className="h-8 bg-gray-200 w-32 mx-auto rounded relative overflow-hidden">
+                                  <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-xs text-gray-500">Barcode Preview</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="text-center text-gray-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 mx-auto mb-1 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6M9 11h6M9 15h4" />
+                                </svg>
+                                <span className="text-xs">Barcode will be generated</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-gray-700 mb-1">Barcode Information</h4>
+                            <p className="text-xs text-gray-600 mb-2">
+                              A unique barcode will be generated for this product. The barcode image filename will include:
+                            </p>
+                            <ul className="text-xs text-gray-600 space-y-1 list-disc pl-4">
+                              <li>Product SKU: <span className="font-mono bg-gray-100 px-1 rounded">{formData.sku || 'SKU'}</span></li>
+                              <li>Product Name: <span className="font-mono bg-gray-100 px-1 rounded">{formData.name || 'Product Name'}</span></li>
+                              <li>Timestamp for uniqueness</li>
+                            </ul>
+                            <p className="text-xs text-gray-500 mt-2 italic">
+                              The barcode can be used for scanning with the inventory app.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -653,6 +745,34 @@ export default function ProductsPage() {
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                       </svg>
                       <p className="text-sm font-medium text-red-800">{error}</p>
+                    </div>
+                  </div>
+                )}
+                
+                {successMessage && (
+                  <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+                    <div className="flex items-start gap-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <p className="text-sm font-medium text-green-800">{successMessage}</p>
+                        {barcodeUrl && (
+                          <div className="mt-2">
+                            <div className="flex items-center gap-2 mb-1">
+                              <img 
+                                src={barcodeUrl} 
+                                alt="Product Barcode" 
+                                className="h-12 border border-green-200 bg-white p-1 rounded"
+                              />
+                              <div>
+                                <p className="text-xs text-green-700">Barcode generated with product name in filename</p>
+                                <p className="text-xs text-green-600 mt-1">Downloading automatically...</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
