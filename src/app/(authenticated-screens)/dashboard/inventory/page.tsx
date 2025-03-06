@@ -32,7 +32,7 @@ interface Product {
 }
 
 export default function InventoryPage() {
-  // Use the products atom instead of local state and API fetches
+  /
   const [products, setProducts] = useAtom(productsAtom)
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -75,7 +75,7 @@ export default function InventoryPage() {
     setSelectedProduct(null)
   }
 
-  // No more fetching from the API – we assume productsAtom is already populated
+
 
   // Filter products based on search term
   const filteredProducts = products?.filter(product =>
@@ -120,7 +120,7 @@ export default function InventoryPage() {
       console.log("data of sell item:", data)
       setIsSellModalOpen(false)
       reset()
-      // Optionally, update the products atom here after a sale
+
     } catch (error) {
       console.error("Failed to process sale:", error)
     }

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { atom } from 'jotai';
 
-// Define interfaces for the data structure
+
 interface Category {
   category_id: number;
   name: string;
