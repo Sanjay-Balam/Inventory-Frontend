@@ -32,7 +32,7 @@ interface Product {
 }
 
 export default function InventoryPage() {
-  /
+
   const [products, setProducts] = useAtom(productsAtom)
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
@@ -42,7 +42,7 @@ export default function InventoryPage() {
   const [isSellModalOpen, setIsSellModalOpen] = useState(false)
   const itemsPerPage = 10
 
-  // Instead of calling a Prisma API, update the products atom directly
+
   const handleStockUpdate = (productId: number, action: 'in' | 'out') => {
     setProducts((prevProducts: Product[]) =>
       prevProducts.map(product => {
@@ -76,8 +76,6 @@ export default function InventoryPage() {
   }
 
 
-
-  // Filter products based on search term
   const filteredProducts = products?.filter(product =>
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     product.product_id.toString().includes(searchTerm)
