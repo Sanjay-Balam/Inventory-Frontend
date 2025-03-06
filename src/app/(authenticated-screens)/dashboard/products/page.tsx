@@ -1,19 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { atom, useAtom } from "jotai"
-import { ArrowLeft, ArrowRight, ChevronDown, Download, Info, Lock, Search } from "lucide-react"
+import { errorAtom, loadingAtom, productsAtom } from "@/atoms/products"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { SellProductModal } from "@/components/SellProductModal"
 import { Modal } from "@/components/ui/modal"
-import { useForm, Controller } from "react-hook-form"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TabSelector } from "@/components/ui/tab-selector"
-import { productsAtom, loadingAtom, errorAtom } from "@/atoms/products"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useAtom } from "jotai"
+import { ArrowLeft, ArrowRight, Download, Info, Lock, Search } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Controller, useForm } from "react-hook-form"
 
 interface Product {
   product_id: number
@@ -455,6 +453,9 @@ export default function InventoryPage() {
                       <label className="block text-sm font-medium mb-1 text-muted-foreground">Phone Number (Optional)</label>
                       <Controller
                         name="phoneNumber"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
                             {...field}
                             placeholder="Enter phone number"
                             className="text-muted-foreground"

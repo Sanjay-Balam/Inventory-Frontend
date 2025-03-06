@@ -5,13 +5,14 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { PrismaAPIRequest } from "@/lib/utils"
 import { ArrowLeft, ArrowRight, Download, Info, Lock, Search } from "lucide-react"
 import { useEffect, useState } from "react"
-
 import { Modal } from "@/components/ui/modal"
 import { TabSelector } from "@/components/ui/tab-selector"
 import { Controller, useForm } from "react-hook-form"
+
+import { useAtom } from "jotai"
+import { productsAtom } from "@/atoms/products"
 
 interface Product {
   product_id: number
@@ -31,38 +32,34 @@ interface Product {
 }
 
 export default function InventoryPage() {
-  const [products, setProducts] = useState<Product[]>([])
+  // Use the products atom instead of local state and API fetches
+  const [products, setProducts] = useAtom(productsAtom)
   const [selectedCategory, setSelectedCategory] = useState<string>("")
   const [currentPage, setCurrentPage] = useState(1)
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showModalBulkStockIn, setShowModalBulkStockIn] = useState<boolean>(false);
-  const itemsPerPage = 10
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [showModalBulkStockIn, setShowModalBulkStockIn] = useState<boolean>(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [isSellModalOpen, setIsSellModalOpen] = useState(false)
+  const itemsPerPage = 10
 
-  const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number, channel_id: number) => {
-    try {
-      const stock = action === 'in' ? currentStock + 1 : currentStock - 1;
-
-      const response = await PrismaAPIRequest(
-        "/inventory/update",
-        "POST",
-        {
-          product_id: productId,
-          channel_id: channel_id,
-          stock: stock
+  // Instead of calling a Prisma API, update the products atom directly
+  const handleStockUpdate = (productId: number, action: 'in' | 'out') => {
+    setProducts((prevProducts: Product[]) =>
+      prevProducts.map(product => {
+        if (product.product_id === productId) {
+          const currentStock = product.inventory[0]?.stock || product.quantity || 0
+          const newStock = action === 'in' ? currentStock + 1 : currentStock - 1
+          if (product.inventory && product.inventory.length > 0) {
+            return {
+              ...product,
+              inventory: [{ ...product.inventory[0], stock: newStock }]
+            }
+          }
+          return { ...product, quantity: newStock }
         }
-      )
-
-      // Handle successful response
-      if (response) {
-        // Refresh the product list or update the UI
-        fetchProducts()
-      }
-    } catch (error) {
-      console.error("Failed to update stock:", error)
-
-    }
+        return product
+      })
+    )
   }
 
   const handleSellItem = (productId: number) => {
@@ -78,20 +75,7 @@ export default function InventoryPage() {
     setSelectedProduct(null)
   }
 
-  const fetchProducts = async () => {
-    try {
-      const response = await PrismaAPIRequest("/inventory/products", "GET");
-      console.log("response of products",response)
-      setProducts(response || []);
-    } catch (error) {
-      console.error("Failed to fetch products:", error)
-      setProducts([])
-    }
-  }
-
-  useEffect(() => {
-    fetchProducts()
-  }, [])
+  // No more fetching from the API – we assume productsAtom is already populated
 
   // Filter products based on search term
   const filteredProducts = products?.filter(product =>
@@ -100,15 +84,14 @@ export default function InventoryPage() {
   ) || []
 
   interface SellItemFormData {
-    customerName?: string;
-    phoneNumber?: string;
-    email?: string;
-    quantity: number;
-    salesChannel: string;
-    sellingPrice: string;
-    paymentMethod: string;
+    customerName?: string
+    phoneNumber?: string
+    email?: string
+    quantity: number
+    salesChannel: string
+    sellingPrice: string
+    paymentMethod: string
   }
-
 
   const { control, handleSubmit, setValue, watch, reset } = useForm<SellItemFormData>({
     defaultValues: {
@@ -120,39 +103,35 @@ export default function InventoryPage() {
       sellingPrice: '',
       paymentMethod: 'Cash'
     }
-  });
+  })
 
-  // Set selling price when product is selected
+  // When a product is selected, update the selling price
   useEffect(() => {
     if (selectedProduct) {
-      setValue('sellingPrice', selectedProduct.price);
+      setValue('sellingPrice', selectedProduct.price)
     }
-  }, [selectedProduct, setValue]);
+  }, [selectedProduct, setValue])
 
-  const watchQuantity = watch('quantity');
-  const watchSellingPrice = watch('sellingPrice');
+  const watchQuantity = watch('quantity')
+  const watchSellingPrice = watch('sellingPrice')
 
   const onSubmit = async (data: SellItemFormData) => {
-
     try {
-      console.log("data of sell item:",data)
-
-      setIsSellModalOpen(false);
-      reset(); // Reset form
-      fetchProducts(); // Refresh product list
+      console.log("data of sell item:", data)
+      setIsSellModalOpen(false)
+      reset()
+      // Optionally, update the products atom here after a sale
     } catch (error) {
-      console.error("Failed to process sale:", error);
+      console.error("Failed to process sale:", error)
     }
-  };
+  }
 
-  // Add state to track customer type
-  const [customerType, setCustomerType] = useState("new");
+  const [customerType, setCustomerType] = useState("new")
 
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-6">
-
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Inventory</h1>
           <div className="flex gap-2">
@@ -238,7 +217,6 @@ export default function InventoryPage() {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-
         <Button className="bg-blue-600">
           <Download className="mr-2 h-4 w-4" />
           Download Stock Report
@@ -285,12 +263,7 @@ export default function InventoryPage() {
                       size="sm"
                       variant="outline"
                       className="h-8 bg-green-50 text-green-700 hover:bg-green-100 border-0"
-                      onClick={() => handleStockUpdate(
-                        product.product_id,
-                        'in',
-                        product.inventory[0]?.stock || product.quantity || 0,
-                        product.inventory[0]?.inventory_id || 0
-                      )}
+                      onClick={() => handleStockUpdate(product.product_id, 'in')}
                     >
                       Stock In
                     </Button>
@@ -298,12 +271,7 @@ export default function InventoryPage() {
                       size="sm"
                       variant="outline"
                       className="h-8 bg-red-50 text-red-700 hover:bg-red-100 border-0"
-                      onClick={() => handleStockUpdate(
-                        product.product_id,
-                        'out',
-                        product.inventory[0]?.stock || product.quantity || 0,
-                        product.inventory[0]?.inventory_id || 0
-                      )}
+                      onClick={() => handleStockUpdate(product.product_id, 'out')}
                     >
                       Stock Out
                     </Button>
@@ -348,28 +316,12 @@ export default function InventoryPage() {
         </div>
       </div>
 
-      {/* Promotional Section */}
-      {/* <div className="bg-blue-50 p-6 rounded-lg">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold">Add Multiple Warehouses</h3>
-            <p className="text-sm text-gray-600">Get total control of your warehouses & track inventory easily.</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button variant="outline" className="text-gray-600">
-              Talk to a specialist
-            </Button>
-            <Button className="bg-yellow-400 text-black hover:bg-yellow-500">Upgrade ⚡</Button>
-          </div>
-        </div>
-      </div> */}
-
       {isSellModalOpen && selectedProduct && (
         <Modal
           title="Sell Items"
           onClose={() => {
-            setIsSellModalOpen(false);
-            reset();
+            setIsSellModalOpen(false)
+            reset()
           }}
           overlayModal={false}
           contentClassName="max-w-4xl mt-10 overflow-y-auto max-h-[90vh]"
@@ -386,11 +338,15 @@ export default function InventoryPage() {
                 </div>
                 <div>
                   <p className="text-sm font-medium mb-1 text-muted-foreground">SKU</p>
-                  <p className="text-lg text-muted-foreground">SKU{selectedProduct.product_id.toString().padStart(3, '0')}</p>
+                  <p className="text-lg text-muted-foreground">
+                    SKU{selectedProduct.product_id.toString().padStart(3, '0')}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium mb-1 text-muted-foreground">Available Quantity</p>
-                  <p className="text-lg text-muted-foreground">{selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}</p>
+                  <p className="text-lg text-muted-foreground">
+                    {selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm font-medium mb-1 text-muted-foreground">Base Price</p>
@@ -402,8 +358,6 @@ export default function InventoryPage() {
             {/* Customer Information */}
             <div className="border rounded-lg p-6">
               <h2 className="text-xl font-bold mb-4 text-muted-foreground">Customer Information</h2>
-
-              {/* Customer Type Tabs - Using TabSelector component */}
               <TabSelector
                 options={[
                   { id: "existing", label: "Existing Customer" },
@@ -418,8 +372,6 @@ export default function InventoryPage() {
                 activeTabClassName="text-muted-foreground"
                 inactiveTabClassName="text-muted-foreground"
               />
-
-              {/* Customer Details Form */}
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium mb-1 text-muted-foreground">Customer Name</label>
@@ -429,11 +381,7 @@ export default function InventoryPage() {
                     rules={{ required: "Customer name is required" }}
                     render={({ field, fieldState }) => (
                       <>
-                        <Input
-                          {...field}
-                          placeholder="Enter customer name"
-                          className="text-muted-foreground"
-                        />
+                        <Input {...field} placeholder="Enter customer name" className="text-muted-foreground" />
                         {fieldState.error && (
                           <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
                         )}
@@ -441,12 +389,12 @@ export default function InventoryPage() {
                     )}
                   />
                 </div>
-
-                {/* Only show phone and email fields for new customers */}
                 {customerType === "new" && (
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium mb-1 text-muted-foreground">Phone Number (Optional)</label>
+                      <label className="block text-sm font-medium mb-1 text-muted-foreground">
+                        Phone Number (Optional)
+                      </label>
                       <Controller
                         name="phoneNumber"
                         control={control}
@@ -460,7 +408,9 @@ export default function InventoryPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1 text-muted-foreground">Email (Optional)</label>
+                      <label className="block text-sm font-medium mb-1 text-muted-foreground">
+                        Email (Optional)
+                      </label>
                       <Controller
                         name="email"
                         control={control}
@@ -489,10 +439,7 @@ export default function InventoryPage() {
                     control={control}
                     rules={{
                       required: "Quantity is required",
-                      min: {
-                        value: 1,
-                        message: "Quantity must be at least 1"
-                      },
+                      min: { value: 1, message: "Quantity must be at least 1" },
                       max: {
                         value: selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0,
                         message: `Maximum available quantity is ${selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}`
@@ -522,10 +469,7 @@ export default function InventoryPage() {
                     control={control}
                     rules={{ required: "Sales channel is required" }}
                     render={({ field }) => (
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <SelectTrigger className="text-muted-foreground">
                           <SelectValue placeholder="Select sales channel" />
                         </SelectTrigger>
@@ -538,7 +482,6 @@ export default function InventoryPage() {
                   />
                 </div>
               </div>
-
               <div className="mt-4">
                 <label className="block text-sm font-medium mb-1 text-muted-foreground">Selling Price</label>
                 <div className="relative">
@@ -549,10 +492,7 @@ export default function InventoryPage() {
                     rules={{ required: "Selling price is required" }}
                     render={({ field, fieldState }) => (
                       <>
-                        <Input
-                          {...field}
-                          className="pl-8 text-muted-foreground"
-                        />
+                        <Input {...field} className="pl-8 text-muted-foreground" />
                         {fieldState.error && (
                           <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
                         )}
@@ -573,10 +513,7 @@ export default function InventoryPage() {
                   control={control}
                   rules={{ required: "Payment method is required" }}
                   render={({ field }) => (
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <SelectTrigger className="text-muted-foreground">
                         <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
@@ -608,8 +545,8 @@ export default function InventoryPage() {
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setIsSellModalOpen(false);
-                  reset();
+                  setIsSellModalOpen(false)
+                  reset()
                 }}
                 className="text-muted-foreground"
               >

@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { atom } from 'jotai';
 
 // Define interfaces for the data structure
@@ -43,3 +44,31 @@ export interface Product {
 
 // Create the products atom
 export const productsAtom = atom<Product[]>([]);
+
+export const fetchProducts = atom(
+  async (get) => {
+    try {
+      const response = await axios.get("/api/products");
+      return response.data;
+    } catch (error) {
+      console.error("Failed to fetch products:", error);
+      return [];
+    }
+  },
+  (get, set, update: Product[]) => {
+    set(productsAtom, update);
+  }
+);
+
+export const updateStock = atom(
+  null,
+  async (get, set, { product_id, channel_id, stock }) => {
+    try {
+      await axios.post("/api/update-stock", { product_id, channel_id, stock });
+      const updatedProducts = await get(fetchProducts);
+      set(productsAtom, updatedProducts);
+    } catch (error) {
+      console.error("Failed to update stock:", error);
+    }
+  }
+);
