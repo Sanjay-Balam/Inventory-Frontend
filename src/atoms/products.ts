@@ -17,7 +17,7 @@ interface Inventory {
   last_updated: string;
 }
 
-interface Product {
+export interface Product {
   product_id: number;
   category_id: number;
   name: string;

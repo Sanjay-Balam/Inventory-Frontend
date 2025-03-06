@@ -1,700 +1,630 @@
 "use client"
 
-import { PrismaAPIRequest } from "@/lib/utils"
+import { useState, useEffect } from "react"
+import { atom, useAtom } from "jotai"
+import { ArrowLeft, ArrowRight, ChevronDown, Download, Info, Lock, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-// Removed the import for Avatar and AvatarFallback due to the error
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, SlidersHorizontal } from "lucide-react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useEffect, useState } from "react"
+import { SellProductModal } from "@/components/SellProductModal"
 import { Modal } from "@/components/ui/modal"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Package, DollarSign, Boxes, Palette,  } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Image } from "lucide-react"
+import { useForm, Controller } from "react-hook-form"
+import { TabSelector } from "@/components/ui/tab-selector"
+import { productsAtom, loadingAtom, errorAtom } from "@/atoms/products"
 
 interface Product {
   product_id: number
   name: string
-  sku: string
   quantity: number
-  price: string
   cost_price: string
+  price: string
+  created_at: string
   category: {
     name: string
   }
+  inventory: Array<{
+    inventory_id: number
+    stock: number
+    last_updated: string
+  }>
 }
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-  const [open, setOpen] = useState<boolean>(false)
-  const [formData, setFormData] = useState({
-    name: "",
-    category_id: "",
-    sku: "",
-    barcode: "",
-    cost_price: "",
-    price: "",
-    quantity: "",
-    low_stock_threshold: "",
-    color: "",
-    material: "",
-    size: "",
-    variant_1: "",
-    variant_2: "",
-    description: "",  
-    image_url: "",
-    final_selling_price: ""
-  })
+export default function InventoryPage() {
+  const [products, setProducts] = useAtom(productsAtom)
+  const [loading, setLoading] = useAtom(loadingAtom)
+  const [error, setError] = useAtom(errorAtom)
+  const [selectedCategory, setSelectedCategory] = useState<string>("")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [searchTerm, setSearchTerm] = useState<string>("")
+  const [showModalBulkStockIn, setShowModalBulkStockIn] = useState<boolean>(false)
+  const itemsPerPage = 10
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [isSellModalOpen, setIsSellModalOpen] = useState(false)
 
-  const fetchProducts = async () => {
+  const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number, channel_id: number) => {
     try {
-      const response = await fetch("http://localhost:3000/api/inventory/products");
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch products')
-      }
-      const data = await response.json()
-      setProducts(data)
+      const stock = action === 'in' ? currentStock + 1 : currentStock - 1
+
+      // Update the product stock in the atom
+      setProducts(prevProducts =>
+        prevProducts.map(product =>
+          product.product_id === productId
+            ? {
+                ...product,
+                inventory: product.inventory.map(inv =>
+                  inv.inventory_id === channel_id ? { ...inv, stock } : inv
+                )
+              }
+            : product
+        )
+      )
     } catch (error) {
-      console.error('Error fetching products:', error)
-      setError('Failed to load products')
-    } finally {
-      setLoading(false)
+      console.error("Failed to update stock:", error)
     }
+  }
+
+  const handleSellItem = (productId: number) => {
+    const product = products.find(p => p.product_id === productId)
+    if (product) {
+      setSelectedProduct(product)
+      setIsSellModalOpen(true)
+    }
+  }
+
+  const handleCloseSellModal = () => {
+    setIsSellModalOpen(false)
+    setSelectedProduct(null)
   }
 
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    setLoading(true)
+    // Simulate fetching products
+    setTimeout(() => {
+      setProducts([
+        // ...mock products data...
+      ])
+      setLoading(false)
+    }, 1000)
+  }, [setProducts, setLoading])
 
-  const handleProductAdded = () => {
-    // Refresh the products list
-    fetchProducts()
+  // Filter products based on search term
+  const filteredProducts = products?.filter(product =>
+    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.product_id.toString().includes(searchTerm)
+  ) || []
+
+  interface SellItemFormData {
+    customerName?: string
+    phoneNumber?: string
+    email?: string
+    quantity: number
+    salesChannel: string
+    sellingPrice: string
+    paymentMethod: string
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
+  const { control, handleSubmit, setValue, watch, reset } = useForm<SellItemFormData>({
+    defaultValues: {
+      customerName: '',
+      phoneNumber: '',
+      email: '',
+      quantity: 1,
+      salesChannel: 'Store',
+      sellingPrice: '',
+      paymentMethod: 'Cash'
+    }
+  })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  useEffect(() => {
+    if (selectedProduct) {
+      setValue('sellingPrice', selectedProduct.price)
+    }
+  }, [selectedProduct, setValue])
+
+  const watchQuantity = watch('quantity')
+  const watchSellingPrice = watch('sellingPrice')
+
+  const onSubmit = async (data: SellItemFormData) => {
     try {
-      const response = await fetch("http://localhost:3000/api/inventory/products", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add product');
-      }
-
-      const data = await response.json();
-      handleProductAdded();
-      setIsModalOpen(false);
+      console.log("data of sell item:", data)
+      setIsSellModalOpen(false)
+      reset()
     } catch (error) {
-      console.error('Error adding product:', error);
-      setError('Failed to add product');
+      console.error("Failed to process sale:", error)
     }
   }
 
-  // Add this function in your ProductsPage component
-  const handleProductSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-        const response = await fetch("http://localhost:3000/api/inventory/products", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(formData)
-        });
-
-        if (!response.ok) {
-            throw new Error('Failed to add product');
-        }
-
-        const data = await response.json();
-        
-        // Download barcode image
-        if (data.barcodeUrl) {
-            const link = document.createElement('a');
-            link.href = data.barcodeUrl;
-            link.download = `barcode_${data.sku}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
-        handleProductAdded();
-        setIsModalOpen(false);
-    } catch (error) {
-        console.error('Error adding product:', error);
-        setError('Failed to add product');
-    }
-};
+  const [customerType, setCustomerType] = useState("new")
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-2xl font-bold text-muted-foreground">Products & Services</h1>
-        <ChevronRight className="w-6 h-6 text-pink-500" />
-      </div>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-6">
 
-      <div className="border-b mb-6">
-        <nav className="flex gap-8">
-          <Button variant="link" className="text-blue-600 relative h-10 px-0 font-normal">
-            Items
-            <span className="ml-1 text-xs bg-neutral-100 px-1.5 py-0.5 rounded">1</span>
-          </Button>
-          <Button variant="link" className= "h-10 px-0 font-normal text-muted-foreground">
-            Categories
-          </Button>
-          <Button variant="link" className="text-gray-500 h-10 px-0 font-normal">
-            Groups
-          </Button>
-          <Button variant="link" className="text-gray-500 h-10 px-0 font-normal">
-            Price Lists
-          </Button>
-          <Button variant="link" className="text-gray-500 h-10 px-0 font-normal">
-            Deleted
-          </Button>
-        </nav>
-      </div>
-
-      <div className="flex gap-4 mb-8">
-        <div className="flex-1 flex gap-2">
-          <div className="relative flex-1">
-            <Input placeholder="Search products, category, description" className="pl-8" />
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="absolute left-2.5 top-2.5 h-5 w-5 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          {/* <Select>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select Category" />
-            </SelectTrigger>
-            <SelectContent className="bg-white">
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="electronics">Electronics</SelectItem>
-              <SelectItem value="clothing">Clothing</SelectItem>
-            </SelectContent>
-          </Select> */}
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon">
-            <SlidersHorizontal className="h-4 w-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="gap-2 text-muted-foreground">
-                Actions
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold">Inventory</h1>
+          <div className="flex gap-2">
+            <div onClick={() => setShowModalBulkStockIn(true)}>
+              <Button variant="outline" className="bg-green-50 text-green-700 hover:bg-green-100 border-0">
+                <Download className="w-4 h-4 mr-2" />
+                Bulk Items Stock In
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-white">
-              <DropdownMenuItem className="text-muted-foreground">Import</DropdownMenuItem>
-              <DropdownMenuItem className="text-muted-foreground">Export</DropdownMenuItem>
-              <DropdownMenuItem className="text-muted-foreground">Print</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
-          >
-            + Add Product
+            </div>
+            <div>
+              <Button variant="outline" className="bg-red-50 text-red-700 hover:bg-red-100 border-0">
+                <Download className="w-4 h-4 mr-2" />
+                Bulk Items Stock Out
+              </Button>
+            </div>
+            <Button className="bg-blue-600">
+              <Lock className="w-4 h-4 mr-2" />
+              Manage Warehouses
+            </Button>
+          </div>
+        </div>
+
+        <div className="text-sm">
+          <Button variant="link" className="p-0 h-auto text-blue-600">
+            Warehouse
           </Button>
         </div>
       </div>
 
-      <div className="rounded-lg border">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b bg-neutral-50">
-              <th className="text-left p-4 font-medium text-gray-500">Item</th>
-              <th className="text-left p-4 font-medium text-gray-500">Qty</th>
-              <th className="text-left p-4 font-medium text-gray-500">Selling Price (Disc %)</th>
-              <th className="text-left p-4 font-medium text-gray-500">Purchase Price</th>
-              <th className="w-10"></th>
-            </tr>
-          </thead>
-          <tbody>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4">
+        <Card className="bg-gray-50">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Low Stock</p>
+                <h3 className="text-lg font-semibold text-muted-foreground">1 Items (0 Qty)</h3>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-green-50">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Positive Stock</p>
+                <h3 className="text-lg font-semibold text-muted-foreground">0 Items (0 Qty)</h3>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Stock Value Sales Price</p>
+                <h3 className="text-lg font-semibold text-muted-foreground">₹ 0</h3>
+              </div>
+              <Info className="w-4 h-4 text-gray-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Stock Value With Purchase Price</p>
+                <h3 className="text-lg font-semibold text-muted-foreground">₹ 0</h3>
+              </div>
+              <Info className="w-4 h-4 text-gray-500" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="flex gap-4 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search Inventory"
+            className="pl-9 text-muted-foreground"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <Button className="bg-blue-600">
+          <Download className="mr-2 h-4 w-4" />
+          Download Stock Report
+        </Button>
+      </div>
+
+      {/* Table */}
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Item</TableHead>
+              <TableHead>Qty</TableHead>
+              <TableHead>Purchase Price</TableHead>
+              <TableHead>Sale Price</TableHead>
+              <TableHead>Last Updated</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <tr>
-                <td colSpan={5} className="text-center p-4">Loading products...</td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={6} className="text-center p-4">Loading products...</TableCell>
+              </TableRow>
             ) : error ? (
-              <tr>
-                <td colSpan={5} className="text-center p-4 text-red-500">{error}</td>
-              </tr>
-            ) : products.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="text-center p-4">No products found</td>
-              </tr>
+              <TableRow>
+                <TableCell colSpan={6} className="text-center p-4 text-red-500">{error}</TableCell>
+              </TableRow>
+            ) : filteredProducts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center p-4">No products found</TableCell>
+              </TableRow>
             ) : (
-              products.map((product) => (
-                <tr key={product.product_id} className="border-b">
-                  <td className="p-4">
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 bg-pink-50">
-                        <AvatarFallback className="text-pink-500">
-                          {product.name.substring(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <div className="font-medium text-muted-foreground">{product.name}</div>
-                        <div className="text-sm  text-muted-foreground">{product.sku}</div>
-                      </div>
-                      <Button variant="outline" size="sm" className="ml-2 text-muted-foreground">
-                        + Variants
+              filteredProducts.map((product) => (
+                <TableRow key={product.product_id}>
+                  <TableCell className="text-muted-foreground">{product.name}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {product.inventory[0]?.stock || product.quantity || 0}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    ₹ {parseFloat(product.cost_price).toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    ₹ {parseFloat(product.price).toFixed(2)}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(product.inventory[0]?.last_updated || product.created_at).toLocaleString('en-US', {
+                      weekday: 'short',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2 text-muted-foreground">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 bg-green-50 text-green-700 hover:bg-green-100 border-0"
+                        onClick={() => handleStockUpdate(
+                          product.product_id,
+                          'in',
+                          product.inventory[0]?.stock || product.quantity || 0,
+                          product.inventory[0]?.inventory_id || 0
+                        )}
+                      >
+                        Stock In
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 bg-red-50 text-red-700 hover:bg-red-100 border-0"
+                        onClick={() => handleStockUpdate(
+                          product.product_id,
+                          'out',
+                          product.inventory[0]?.stock || product.quantity || 0,
+                          product.inventory[0]?.inventory_id || 0
+                        )}
+                      >
+                        Stock Out
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 bg-blue-50 text-blue-700 hover:bg-blue-100 border-0"
+                        onClick={() => handleSellItem(product.product_id)}
+                      >
+                        Sell Item
                       </Button>
                     </div>
-                  </td>
-                  <td className="p-4 text-muted-foreground">{product.quantity}</td>
-                  <td className="p-4 text-muted-foreground">₹{parseFloat(product.price).toFixed(2)}</td>
-                  <td className="p-4 text-muted-foreground">₹{parseFloat(product.cost_price).toFixed(2)}</td>
-                  <td className="p-4">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>Edit</DropdownMenuItem>
-                        <DropdownMenuItem>Delete</DropdownMenuItem>
-                        <DropdownMenuItem>View Details</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))
             )}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
 
-      {isModalOpen && (
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" disabled={currentPage === 1}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-1">
+            <div className="bg-blue-600 text-white w-8 h-8 rounded flex items-center justify-center">1</div>
+          </div>
+          <Button variant="outline" size="icon">
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+          <Select value={itemsPerPage.toString()}>
+            <SelectTrigger className="w-[70px]">
+              <SelectValue className="text-muted-foreground">10</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="10" className="text-muted-foreground">10</SelectItem>
+              <SelectItem value="20" className="text-muted-foreground">20</SelectItem>
+              <SelectItem value="50" className="text-muted-foreground">50</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Promotional Section */}
+      {/* <div className="bg-blue-50 p-6 rounded-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">Add Multiple Warehouses</h3>
+            <p className="text-sm text-gray-600">Get total control of your warehouses & track inventory easily.</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" className="text-gray-600">
+              Talk to a specialist
+            </Button>
+            <Button className="bg-yellow-400 text-black hover:bg-yellow-500">Upgrade ⚡</Button>
+          </div>
+        </div>
+      </div> */}
+
+      {isSellModalOpen && selectedProduct && (
         <Modal
-          title="Add New Product"
-          onClose={() => setIsModalOpen(false)}
+          title="Sell Items"
+          onClose={() => {
+            setIsSellModalOpen(false)
+            reset()
+          }}
           overlayModal={false}
-          contentClassName="max-w-5xl"
+          contentClassName="max-w-4xl mt-10 overflow-y-auto max-h-[90vh]"
           alignment="top"
         >
-          <div className="flex h-[80vh] overflow-hidden">
-            {/* Sidebar Navigation */}
-            <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-              <div className="space-y-1">
-                <button
-                  onClick={() => document.getElementById('basic-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
-                >
-                  <Package className="h-5 w-5 text-blue-600" />
-                  <span>Basic Information</span>
-                </button>
-                <button
-                  onClick={() => document.getElementById('pricing-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
-                >
-                  <DollarSign className="h-5 w-5 text-green-600" />
-                  <span>Pricing</span>
-                </button>
-                <button
-                  onClick={() => document.getElementById('inventory-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
-                >
-                  <Boxes className="h-5 w-5 text-amber-600" />
-                  <span>Inventory</span>
-                </button>
-                <button
-                  onClick={() => document.getElementById('details-section')?.scrollIntoView({ behavior: 'smooth' })}
-                  className="w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 text-gray-700 font-medium"
-                >
-                  <Palette className="h-5 w-5 text-purple-600" />
-                  <span>Details</span>
-                </button>
-              </div>
-
-              <div className="mt-8 p-4 bg-blue-50 rounded-lg border border-blue-100">
-                <h3 className="text-sm font-medium text-blue-800 mb-2">Tips</h3>
-                <p className="text-xs text-blue-700">
-                  Complete all required fields marked with * for successful product creation. Adding detailed information helps with inventory management and sales tracking.
-                </p>
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 p-4">
+            {/* Product Information */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Product Information</h2>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">Product Name</p>
+                  <p className="text-lg text-muted-foreground">{selectedProduct.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">SKU</p>
+                  <p className="text-lg text-muted-foreground">SKU{selectedProduct.product_id.toString().padStart(3, '0')}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">Available Quantity</p>
+                  <p className="text-lg text-muted-foreground">{selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium mb-1 text-muted-foreground">Base Price</p>
+                  <p className="text-lg text-muted-foreground">₹ {parseFloat(selectedProduct.price).toFixed(2)}</p>
+                </div>
               </div>
             </div>
 
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto p-6">
-              <form onSubmit={handleProductSubmit} className="space-y-8">
-                {/* Basic Information Section */}
-                <section id="basic-section" className="scroll-mt-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Package className="h-6 w-6 text-blue-600" />
-                    <h2 className="text-xl font-semibold text-gray-800">Basic Information</h2>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                            Product Name <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="name"
-                            name="name"
-                            placeholder="Enter product name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            required
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="category_id" className="text-sm font-medium text-gray-700">
-                            Category <span className="text-red-500">*</span>
-                          </Label>
-                          <Select 
-                            name="category_id" 
-                            value={formData.category_id}
-                            onValueChange={(value) => handleChange({ 
-                              target: { name: 'category_id', value } 
-                            } as React.ChangeEvent<HTMLInputElement>)}
-                          >
-                            <SelectTrigger className="border-gray-300 rounded-lg">
-                              <SelectValue placeholder="Select category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="1">Category 1</SelectItem>
-                              <SelectItem value="2">Category 2</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="sku" className="text-sm font-medium text-gray-700">
-                            SKU <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="sku"
-                            name="sku"
-                            placeholder="Enter SKU"
-                            value={formData.sku}
-                            onChange={handleChange}
-                            required
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                          <p className="text-xs text-gray-500">Unique identifier for your product</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="barcode" className="text-sm font-medium text-gray-700">
-                            Barcode
-                          </Label>
-                          <Input
-                            id="barcode"
-                            name="barcode"
-                            placeholder="Enter barcode (optional)"
-                            value={formData.barcode}
-                            onChange={handleChange}
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                          <p className="text-xs text-gray-500">Leave empty to auto-generate</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+            {/* Customer Information */}
+            <div className="border rounded-lg p-6">
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Customer Information</h2>
 
-                {/* Pricing Section */}
-                <section id="pricing-section" className="scroll-mt-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <DollarSign className="h-6 w-6 text-green-600" />
-                    <h2 className="text-xl font-semibold text-gray-800">Pricing Information</h2>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="cost_price" className="text-sm font-medium text-gray-700">
-                            Cost Price <span className="text-red-500">*</span>
-                          </Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
-                            <Input
-                              id="cost_price"
-                              name="cost_price"
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={formData.cost_price}
-                              onChange={handleChange}
-                              required
-                              className="pl-8 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500">Purchase price from supplier</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="price" className="text-sm font-medium text-gray-700">
-                            Selling Price <span className="text-red-500">*</span>
-                          </Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
-                            <Input
-                              id="price"
-                              name="price"
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={formData.price}
-                              onChange={handleChange}
-                              required
-                              className="pl-8 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500">Regular selling price</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="final_selling_price" className="text-sm font-medium text-gray-700">
-                            Final Price
-                          </Label>
-                          <div className="relative">
-                            <span className="absolute left-3 top-2.5 text-gray-500">₹</span>
-                            <Input
-                              id="final_selling_price"
-                              name="final_selling_price"
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={formData.final_selling_price}
-                              onChange={handleChange}
-                              className="pl-8 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                            />
-                          </div>
-                          <p className="text-xs text-gray-500">Price after discounts</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+              {/* Customer Type Tabs - Using TabSelector component */}
+              <TabSelector
+                options={[
+                  { id: "existing", label: "Existing Customer" },
+                  { id: "new", label: "New Customer" }
+                ]}
+                defaultValue="new"
+                value={customerType}
+                onChange={(value) => setCustomerType(value)}
+                variant="default"
+                fullWidth
+                className="mb-4"
+                activeTabClassName="text-muted-foreground"
+                inactiveTabClassName="text-muted-foreground"
+              />
 
-                {/* Inventory Section */}
-                <section id="inventory-section" className="scroll-mt-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Boxes className="h-6 w-6 text-amber-600" />
-                    <h2 className="text-xl font-semibold text-gray-800">Inventory Management</h2>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="quantity" className="text-sm font-medium text-gray-700">
-                            Initial Stock <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="quantity"
-                            name="quantity"
-                            type="number"
-                            placeholder="Enter quantity"
-                            value={formData.quantity}
-                            onChange={handleChange}
-                            required
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                          <p className="text-xs text-gray-500">Current available quantity</p>
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="low_stock_threshold" className="text-sm font-medium text-gray-700">
-                            Low Stock Alert <span className="text-red-500">*</span>
-                          </Label>
-                          <Input
-                            id="low_stock_threshold"
-                            name="low_stock_threshold"
-                            type="number"
-                            placeholder="Set threshold"
-                            value={formData.low_stock_threshold}
-                            onChange={handleChange}
-                            required
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                          <p className="text-xs text-gray-500">Get notified when stock falls below this value</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* Details Section */}
-                <section id="details-section" className="scroll-mt-4">
-                  <div className="flex items-center gap-3 mb-4">
-                    <Palette className="h-6 w-6 text-purple-600" />
-                    <h2 className="text-xl font-semibold text-gray-800">Product Details</h2>
-                  </div>
-                  <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <div className="p-6 space-y-6">
-                      <div className="grid grid-cols-3 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="color" className="text-sm font-medium text-gray-700">Color</Label>
-                          <Input
-                            id="color"
-                            name="color"
-                            placeholder="Enter color"
-                            value={formData.color}
-                            onChange={handleChange}
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="material" className="text-sm font-medium text-gray-700">Material</Label>
-                          <Input
-                            id="material"
-                            name="material"
-                            placeholder="Enter material"
-                            value={formData.material}
-                            onChange={handleChange}
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="size" className="text-sm font-medium text-gray-700">Size</Label>
-                          <Input
-                            id="size"
-                            name="size"
-                            placeholder="Enter size"
-                            value={formData.size}
-                            onChange={handleChange}
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-6">
-                        <div className="space-y-2">
-                          <Label htmlFor="variant_1" className="text-sm font-medium text-gray-700">Variant 1</Label>
-                          <Input
-                            id="variant_1"
-                            name="variant_1"
-                            placeholder="Enter variant"
-                            value={formData.variant_1}
-                            onChange={handleChange}
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="variant_2" className="text-sm font-medium text-gray-700">Variant 2</Label>
-                          <Input
-                            id="variant_2"
-                            name="variant_2"
-                            placeholder="Enter variant"
-                            value={formData.variant_2}
-                            onChange={handleChange}
-                            className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="description" className="text-sm font-medium text-gray-700">Description</Label>
-                        <Textarea
-                          id="description"
-                          name="description"
-                          placeholder="Enter product description"
-                          value={formData.description}
-                          onChange={handleChange}
-                          rows={3}
-                          className="border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+              {/* Customer Details Form */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Customer Name</label>
+                  <Controller
+                    name="customerName"
+                    control={control}
+                    rules={{ required: "Customer name is required" }}
+                    render={({ field, fieldState }) => (
+                      <>
+                        <Input
+                          {...field}
+                          placeholder="Enter customer name"
+                          className="text-muted-foreground"
                         />
-                      </div>
+                        {fieldState.error && (
+                          <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
 
-                      <div className="space-y-2">
-                        <Label htmlFor="image_url" className="text-sm font-medium text-gray-700">Image URL</Label>
-                        <div className="relative">
-                          <Image className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-                          <Input
-                            id="image_url"
-                            name="image_url"
-                            placeholder="Enter image URL"
-                            value={formData.image_url}
-                            onChange={handleChange}
-                            className="pl-10 border-gray-300 text-muted-foreground focus:border-blue-500 focus:ring-blue-500 rounded-lg"
+                {/* Only show phone and email fields for new customers */}
+                {customerType === "new" && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-muted-foreground">Phone Number (Optional)</label>
+                      <Controller
+                        name="phoneNumber"
+                            {...field}
+                            placeholder="Enter phone number"
+                            className="text-muted-foreground"
                           />
-                        </div>
-                      </div>
+                        )}
+                      />
                     </div>
-                  </div>
-                </section>
-
-                {error && (
-                  <div className="p-4 rounded-lg bg-red-50 border border-red-200">
-                    <div className="flex items-center gap-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                      <p className="text-sm font-medium text-red-800">{error}</p>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-muted-foreground">Email (Optional)</label>
+                      <Controller
+                        name="email"
+                        control={control}
+                        render={({ field }) => (
+                          <Input
+                            {...field}
+                            placeholder="Enter email address"
+                            className="text-muted-foreground"
+                          />
+                        )}
+                      />
                     </div>
                   </div>
                 )}
-
-                <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-3 mt-8">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setIsModalOpen(false)}
-                    className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg"
-                  >
-                    Cancel
-                  </Button>
-                  <Button 
-                    type="submit" 
-                    disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                  >
-                    {loading ? (
-                      <div className="flex items-center">
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>Adding Product...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                        </svg>
-                        <span>Add Product</span>
-                      </div>
-                    )}
-                  </Button>
-                </div>
-              </form>
+              </div>
             </div>
-          </div>
+
+            {/* Order Details */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Order Details</h2>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Quantity</label>
+                  <Controller
+                    name="quantity"
+                    control={control}
+                    rules={{
+                      required: "Quantity is required",
+                      min: {
+                        value: 1,
+                        message: "Quantity must be at least 1"
+                      },
+                      max: {
+                        value: selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0,
+                        message: `Maximum available quantity is ${selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}`
+                      }
+                    }}
+                    render={({ field, fieldState }) => (
+                      <>
+                        <Input
+                          {...field}
+                          type="number"
+                          min="1"
+                          max={selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}
+                          className="text-muted-foreground"
+                          onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                        />
+                        {fieldState.error && (
+                          <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-muted-foreground">Sales Channel</label>
+                  <Controller
+                    name="salesChannel"
+                    control={control}
+                    rules={{ required: "Sales channel is required" }}
+                    render={({ field }) => (
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <SelectTrigger className="text-muted-foreground">
+                          <SelectValue placeholder="Select sales channel" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-white z-50">
+                          <SelectItem value="Store">Store</SelectItem>
+                          <SelectItem value="Online">Online</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <label className="block text-sm font-medium mb-1 text-muted-foreground">Selling Price</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2">₹</span>
+                  <Controller
+                    name="sellingPrice"
+                    control={control}
+                    rules={{ required: "Selling price is required" }}
+                    render={({ field, fieldState }) => (
+                      <>
+                        <Input
+                          {...field}
+                          className="pl-8 text-muted-foreground"
+                        />
+                        {fieldState.error && (
+                          <p className="text-red-500 text-sm mt-1">{fieldState.error.message}</p>
+                        )}
+                      </>
+                    )}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Details */}
+            <div>
+              <h2 className="text-xl font-bold mb-4 text-muted-foreground">Payment Details</h2>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-muted-foreground">Payment Method</label>
+                <Controller
+                  name="paymentMethod"
+                  control={control}
+                  rules={{ required: "Payment method is required" }}
+                  render={({ field }) => (
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger className="text-muted-foreground">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white z-50">
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Card">Card</SelectItem>
+                        <SelectItem value="UPI">UPI</SelectItem>
+                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Total */}
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-medium text-muted-foreground">Total Amount:</span>
+                <span className="text-xl font-bold text-muted-foreground">
+                  ₹ {((parseFloat(watchSellingPrice) || parseFloat(selectedProduct.price)) * (watchQuantity || 1)).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsSellModalOpen(false);
+                  reset();
+                }}
+                className="text-muted-foreground"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-blue-600" onClick={handleSubmit(onSubmit)}>
+                Complete Sale
+              </Button>
+            </div>
+          </form>
         </Modal>
       )}
     </div>
   )
 }
-

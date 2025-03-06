@@ -1,93 +1,73 @@
 "use client"
 
-import { useEffect, useState } from "react"
 import {
-  BarChart3,
-  Box,
-  DollarSign,
-  Package,
-  ShoppingCart,
-  TrendingDown,
-  TrendingUp,
-  AlertTriangle,
+    AlertTriangle,
+    BarChart3,
+    Box,
+    DollarSign,
+    Package,
+    ShoppingCart,
+    TrendingDown,
+    TrendingUp,
 } from "lucide-react"
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
+import { useEffect, useState } from "react"
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 
+import { Product, productsAtom } from "@/atoms/products"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { useProducts } from "@/hooks/useProducts"
-
-// Sample data for charts
-const salesData = [
-  { name: "Jan", total: 1200 },
-  { name: "Feb", total: 2100 },
-  { name: "Mar", total: 1800 },
-  { name: "Apr", total: 2400 },
-  { name: "May", total: 2800 },
-  { name: "Jun", total: 3200 },
-]
-
-// Sample recent orders
-const recentOrders = [
-  {
-    id: "ORD001",
-    customer: "John Doe",
-    amount: 1234.56,
-    status: "Processing",
-    items: 3,
-    date: "2 hours ago",
-  },
-  {
-    id: "ORD002",
-    customer: "Jane Smith",
-    amount: 890.0,
-    status: "Completed",
-    items: 2,
-    date: "5 hours ago",
-  },
-  {
-    id: "ORD003",
-    customer: "Bob Wilson",
-    amount: 432.1,
-    status: "Pending",
-    items: 1,
-    date: "6 hours ago",
-  },
-]
-
-// Sample low stock items
-const lowStockItems = [
-  {
-    id: "PRD001",
-    name: "Premium Headphones",
-    stock: 3,
-    threshold: 10,
-    status: "Critical",
-  },
-  {
-    id: "PRD002",
-    name: "Wireless Mouse",
-    stock: 8,
-    threshold: 15,
-    status: "Warning",
-  },
-  {
-    id: "PRD003",
-    name: "USB-C Cable",
-    stock: 5,
-    threshold: 20,
-    status: "Critical",
-  },
-]
+import { useAtom } from "jotai"
 
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState("7d")
-  const { products, fetchProducts } = useProducts();
+  const { fetchProducts } = useProducts();
+  const [products] = useAtom(productsAtom);
+
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
-  console.log("products in dashboard",products)
+
+  console.log("products in dashboard", products)
+
+  // Calculate sales data dynamically
+  const salesData = products.map((product: Product) => ({
+    name: product.name,
+    total: parseFloat(product.price) * product.quantity
+  }));
+
+  // Update recent orders dynamically if available in products
+  const recentOrders = products.map((product: Product) => ({
+    id: product.product_id,
+    customer: product.name, // Assuming customer name is part of product for example
+    amount: parseFloat(product.price),
+    status: "Pending", // Placeholder status
+    items: product.quantity,
+    date: "Just now" // Placeholder date
+  }));
+
+  // Update low stock items dynamically
+  const lowStockItems = products.filter((product: Product) => product.quantity < product.low_stock_threshold).map((product: Product) => ({
+    id: product.product_id,
+    name: product.name,
+    stock: product.quantity,
+    threshold: product.low_stock_threshold,
+    status: product.quantity < product.low_stock_threshold / 2 ? "Critical" : "Warning"
+  }));
+
+  // Calculate total revenue dynamically
+  const totalRevenue = products.reduce((acc, product) => acc + parseFloat(product.price) * product.quantity, 0);
+
+  // Calculate total orders dynamically
+  const totalOrders = products.length;
+
+  // Calculate total products dynamically
+  const totalProducts = products.length;
+
+  // Calculate low stock alerts dynamically
+  const lowStockAlerts = products.filter((product: Product) => product.quantity < product.low_stock_threshold).length;
+
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between space-y-2">
@@ -105,7 +85,7 @@ export default function DashboardPage() {
             <DollarSign className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">$45,231.89</div>
+            <div className="text-2xl font-bold text-foreground">${totalRevenue.toFixed(2)}</div>
             <div className="flex text-xs text-foreground">
               <TrendingUp className="mr-1 h-4 w-4 text-green-500 inline" />
               <p className="text-xs text-foreground">+20.1% from last month</p>
@@ -118,7 +98,7 @@ export default function DashboardPage() {
             <ShoppingCart className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">+573</div>
+            <div className="text-2xl font-bold text-foreground">{totalOrders}</div>
             <div className="flex text-xs text-foreground">
               <TrendingDown className="mr-1 h-4 w-4 text-red-500 inline" />
               <p className="text-xs text-foreground">-2.5% from last month</p>
@@ -131,7 +111,7 @@ export default function DashboardPage() {
             <Package className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">1,432</div>
+            <div className="text-2xl font-bold text-foreground">{totalProducts}</div>
             <p className="text-xs text-foreground">48 added this month</p>
           </CardContent>
         </Card>
@@ -141,7 +121,7 @@ export default function DashboardPage() {
             <AlertTriangle className="h-4 w-4 text-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">12</div>
+            <div className="text-2xl font-bold text-foreground">{lowStockAlerts}</div>
             <p className="text-xs text-foreground">5 critical items</p>
           </CardContent>
         </Card>
@@ -266,4 +246,3 @@ export default function DashboardPage() {
     </div>
   )
 }
-
