@@ -12,6 +12,7 @@ import {
   FileText,
   Package,
   PenSquare,
+  Receipt,
   Settings,
   ShoppingBag,
   ShoppingCart,
@@ -37,11 +38,6 @@ const menuItems = [
   {
     title: "Purchases",
     icon: ShoppingCart,
-    items: [],
-  },
-  {
-    title: "Quotations",
-    icon: PenSquare,
     items: [],
   },
   {
@@ -76,9 +72,9 @@ const menuItems = [
     href: "/vendors",
   },
   {
-    title: "Insights",
-    icon: BarChart3,
-    href: "/insights",
+    title: "Billing",
+    icon: Receipt,
+    href: "/dashboard/billing",
   },
   {
     title: "Reports",
@@ -89,11 +85,6 @@ const menuItems = [
     title: "Packing Lists",
     icon: FileText,
     href: "/packing-lists",
-  },
-  {
-    title: "E-way Bills",
-    icon: Truck,
-    href: "/e-way-bills",
   },
   {
     title: "OnlineStore",
@@ -120,7 +111,7 @@ const menuItems = [
 export function Sidebar() {
   const router = useRouter()
   const pathname = usePathname()
-  const [openSections, setOpenSections] = React.useState<string[]>(["Sales"])
+  const [openSections, setOpenSections] = React.useState<string[]>([""])
 
   const handleNavigation = (href: string) => {
     if (typeof window !== 'undefined') {
@@ -164,7 +155,7 @@ export function Sidebar() {
                         key={subItem.href}
                         href={subItem.href}
                         className={`block px-4 py-2 text-[14px] text-gray-600 hover:bg-gray-100 ${
-                          pathname === subItem.href ? "bg-gray-100" : ""
+                          pathname === subItem.href ? "" : ""
                         }`}
                       >
                         {subItem.title}
@@ -180,8 +171,8 @@ export function Sidebar() {
             <button
               key={item.title}
               onClick={() => handleNavigation(item.href || "#")}
-              className={`w-full flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-gray-700 hover:bg-gray-100 ${
-                isActive ? "bg-gray-100" : ""
+              className={`w-full flex items-center gap-2 px-4 py-2 text-[14px] font-medium text-gray-700  ${
+                pathname === item.href ? "bg-gray-200" : ""
               }`}
             >
               <item.icon className="h-5 w-5 text-gray-500" />
