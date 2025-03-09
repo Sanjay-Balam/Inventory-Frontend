@@ -3,7 +3,6 @@
 import { PrismaAPIRequest } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Modal } from "@/components/ui/modal"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 // Removed the import for Avatar and AvatarFallback due to the error
@@ -13,6 +12,7 @@ import { useEffect, useState } from "react"
 import { Modal } from "@/components/ui/modal"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/use-toast"
 import { Textarea } from "@/components/ui/textarea"
 import { Package, DollarSign, Boxes, Palette,  } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -23,6 +23,7 @@ interface Product {
   product_id: number
   name: string
   sku: string
+  barcode: string
   quantity: number
   price: string
   cost_price: string
@@ -30,8 +31,8 @@ interface Product {
     name: string
   }
 }
-
 export default function ProductsPage() {
+  const { toast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,6 +61,12 @@ export default function ProductsPage() {
   const [showScanner, setShowScanner] = useState(false);
   const [scannedProduct, setScannedProduct] = useState<Product | null>(null);
   const [scanSuccessMessage, setScanSuccessMessage] = useState<string>('');
+  const [isProcessingBarcode, setIsProcessingBarcode] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [isProductDetailsModalOpen, setIsProductDetailsModalOpen] = useState(false);
+  const [categories, setCategories] = useState<{category_id: number, name: string}[]>([]);
+  const [testBarcode, setTestBarcode] = useState('');
+  const [selectedTestBarcode, setSelectedTestBarcode] = useState('987654321098');
 
   const fetchProducts = async () => {
     try {
@@ -78,8 +85,27 @@ export default function ProductsPage() {
     }
   }
 
+  const fetchCategories = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inventory/categories`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+      const data = await response.json();
+      setCategories(data);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load categories. Please refresh the page.",
+        variant: "destructive"
+      });
+    }
+  }
+
   useEffect(() => {
     fetchProducts()
+    fetchCategories()
   }, [])
 
   const handleProductAdded = () => {
@@ -124,8 +150,40 @@ export default function ProductsPage() {
     setSuccessMessage(null);
     setBarcodeUrl(null);
     
+    // Validate required fields
+    const requiredFields = ['name', 'category_id', 'sku', 'price', 'cost_price', 'quantity', 'low_stock_threshold'];
+    const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
+    
+    if (missingFields.length > 0) {
+      setError(`Please fill in all required fields: ${missingFields.join(', ')}`);
+      toast({
+        title: "Validation Error",
+        description: `Please fill in all required fields: ${missingFields.join(', ')}`,
+        variant: "destructive"
+      });
+      setLoading(false);
+      return;
+    }
+    
+    // Validate numeric fields
+    const numericFields = ['price', 'cost_price', 'quantity', 'low_stock_threshold'];
+    for (const field of numericFields) {
+      const value = formData[field as keyof typeof formData];
+      if (value && isNaN(Number(value))) {
+        setError(`${field} must be a valid number`);
+        toast({
+          title: "Validation Error",
+          description: `${field} must be a valid number`,
+          variant: "destructive"
+        });
+        setLoading(false);
+        return;
+      }
+    }
+    
     try {
-        const response = await fetch("http://localhost:3000/api/inventory/products", {
+        // Use the environment variable for the API URL
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inventory/products`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -197,36 +255,225 @@ export default function ProductsPage() {
     } catch (error) {
         console.error('Error adding product:', error);
         setError(error instanceof Error ? error.message : 'Failed to add product');
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : 'Failed to add product',
+          variant: "destructive"
+        });
     } finally {
         setLoading(false);
     }
 };
 
-  const handleBarcodeScan = async (barcode: string) => {
-    try {
-      const response = await fetch(`http://localhost:3000/api/barcode/scan/${barcode}`);
-      if (response.ok) {
-        const product = await response.json();
-        setScannedProduct(product);
-        setScanSuccessMessage(`Successfully scanned: ${product.name}`);
-        
-        // Play the success sound
-        const audio = new Audio('/beep.mp3');
-        audio.play().catch(() => {}); // Ignore if sound fails
-        
-        // Refresh the products list to ensure we have the latest data
-        fetchProducts();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to find product');
-      }
-    } catch (error) {
-      console.error('Error scanning barcode:', error);
-      setError(error instanceof Error ? error.message : 'Failed to scan barcode');
-    } finally {
-      setShowScanner(false);
+const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  if (!e.target.files || e.target.files.length === 0) {
+    return;
+  }
+
+  const file = e.target.files[0];
+  const formData = new FormData();
+  formData.append('barcode', file);
+  
+  try {
+    setLoading(true);
+    // Clear any previous product selection
+    setSelectedProduct(null);
+    setIsProductDetailsModalOpen(false);
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to upload barcode image');
     }
-  };
+
+    const data = await response.json();
+    console.log('Barcode scan result:', data);
+
+    if (data.product) {
+      // Product found, show details
+      toast({
+        title: "Product Found",
+        description: `Found product: ${data.product.name} (Barcode: ${data.barcode})`,
+        variant: "default"
+      });
+      
+      // Set product details in state or navigate to product details page
+      setSelectedProduct(data.product);
+      setIsProductDetailsModalOpen(true);
+    } else {
+      // No product found with this barcode
+      toast({
+        title: "No Product Found",
+        description: `Barcode ${data.barcode} was detected, but no matching product was found.`,
+        variant: "destructive"
+      });
+    }
+  } catch (error) {
+    console.error('Error uploading barcode image:', error);
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : 'Failed to process barcode image',
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+    // Reset file input
+    if (e.target) {
+      e.target.value = '';
+    }
+  }
+};
+
+const handleBarcodeScan = async (barcode: string) => {
+  try {
+    setLoading(true);
+    setScanSuccessMessage(`Barcode detected: ${barcode}`);
+    
+    // Clear any previous product selection
+    setSelectedProduct(null);
+    setIsProductDetailsModalOpen(false);
+    
+    // Use the actual scanned barcode
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/scan/${barcode}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        toast({
+          title: "Product Not Found",
+          description: `No product found with barcode ${barcode}`,
+          variant: "destructive"
+        });
+        return;
+      }
+      throw new Error('Failed to fetch product');
+    }
+    
+    const data = await response.json();
+    console.log('Product data:', data);
+    
+    // Set product details in state
+    setSelectedProduct(data);
+    setIsProductDetailsModalOpen(true);
+    
+    toast({
+      title: "Product Found",
+      description: `Found product: ${data.name}`,
+      variant: "default"
+    });
+    
+  } catch (error) {
+    console.error('Error processing barcode:', error);
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : 'Failed to process barcode',
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleCreateTestProduct = async () => {
+  if (!testBarcode) {
+    toast({
+      title: "Error",
+      description: "Please enter a barcode",
+      variant: "destructive"
+    });
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/create-test-product`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ barcode: testBarcode })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to create test product');
+    }
+    
+    const data = await response.json();
+    console.log('Test product created:', data);
+    
+    toast({
+      title: "Success",
+      description: data.message || 'Test product created successfully',
+      variant: "default"
+    });
+    
+    // Refresh products list
+    fetchProducts();
+    
+    // Clear the input
+    setTestBarcode('');
+  } catch (error) {
+    console.error('Error creating test product:', error);
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : 'Failed to create test product',
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleDirectScan = async () => {
+  try {
+    setLoading(true);
+    
+    // Clear any previous product selection
+    setSelectedProduct(null);
+    setIsProductDetailsModalOpen(false);
+    
+    // Use the selected test barcode
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/scan/${selectedTestBarcode}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        toast({
+          title: "Product Not Found",
+          description: `No product found with barcode ${selectedTestBarcode}`,
+          variant: "destructive"
+        });
+        return;
+      }
+      throw new Error('Failed to fetch product');
+    }
+    
+    const data = await response.json();
+    console.log('Product data:', data);
+    
+    // Set product details in state
+    setSelectedProduct(data);
+    setIsProductDetailsModalOpen(true);
+    
+    toast({
+      title: "Product Found",
+      description: `Found product: ${data.name} (Barcode: ${data.barcode})`,
+      variant: "default"
+    });
+  } catch (error) {
+    console.error('Error scanning barcode:', error);
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : 'Failed to process barcode',
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="p-6">
@@ -282,8 +529,7 @@ export default function ProductsPage() {
             <SelectContent className="bg-white">
               <SelectItem value="all">All Categories</SelectItem>
               <SelectItem value="electronics">Electronics</SelectItem>
-              <SelectItem value="clothing">Clothing</SelectItem>
-            </SelectContent>
+              <SelectItem value="clothing">Clothing</SelectContent>
           </Select> */}
         </div>
 
@@ -304,6 +550,37 @@ export default function ProductsPage() {
               <DropdownMenuItem className="text-muted-foreground">Print</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          <Button
+            variant="outline"
+            onClick={() => document.getElementById('barcode-upload')?.click()}
+            className="gap-2 text-muted-foreground"
+          >
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+            >
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Upload Barcode
+          </Button>
+
+          {/* Add this hidden input for file upload */}
+          <input
+            type="file"
+            id="barcode-upload"
+            accept="image/*"
+            className="hidden"
+            onChange={handleBarcodeImageUpload}
+          />
           <Button
             variant="outline"
             onClick={() => setShowScanner(true)}
@@ -329,24 +606,121 @@ export default function ProductsPage() {
         </div>
       </div>
 
+      {/* Add this in the JSX where you want the barcode scanner to appear */}
+      <div className="mt-6 p-4 border rounded-lg bg-white">
+        <h3 className="text-lg font-medium mb-4">Scan Barcode</h3>
+        <div className="flex flex-col gap-4">
+          <div className="space-y-2 mb-4">
+            <Label htmlFor="test-barcode-select" className="block text-sm font-medium text-gray-700">
+              Select Test Barcode
+            </Label>
+            <Select 
+              value={selectedTestBarcode}
+              onValueChange={(value) => setSelectedTestBarcode(value)}
+            >
+              <SelectTrigger className="border-gray-300 rounded-lg">
+                <SelectValue placeholder="Select a test barcode" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="123456789012">Test Product (123456789012)</SelectItem>
+                <SelectItem value="987654321098">Test Product (987654321098)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <label htmlFor="barcode-upload" className="block text-sm font-medium text-gray-700 mb-2">
+              Upload Barcode Image
+            </label>
+            <input
+              id="barcode-upload"
+              type="file"
+              accept="image/*"
+              onChange={handleBarcodeImageUpload}
+              className="block w-full text-sm text-gray-500
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-md file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100"
+              disabled={loading}
+            />
+          </div>
+          
+          <div className="mt-4">
+            <Button 
+              onClick={() => setShowScanner(true)}
+              disabled={loading}
+              className="w-full"
+            >
+              Scan with Camera
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Add this after the barcode scanner section */}
+      <div className="mt-6 p-4 border rounded-lg bg-white">
+        <h3 className="text-lg font-medium mb-4">Create Test Product</h3>
+        <div className="flex flex-col gap-4">
+          <div>
+            <Label htmlFor="test-barcode" className="block text-sm font-medium text-gray-700 mb-2">
+              Barcode
+            </Label>
+            <div className="flex gap-2">
+              <Input
+                id="test-barcode"
+                placeholder="Enter barcode (e.g., 123456789012)"
+                value={testBarcode}
+                onChange={(e) => setTestBarcode(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleCreateTestProduct}
+                disabled={loading || !testBarcode}
+              >
+                Create
+              </Button>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            This will create a test product with the specified barcode for testing purposes.
+          </p>
+        </div>
+      </div>
+
+      {/* Add this after the Select dropdown */}
+      <div className="mt-4">
+        <Button 
+          onClick={handleDirectScan}
+          className="w-full"
+        >
+          Scan Selected Barcode Directly
+        </Button>
+      </div>
+
       {/* Scanner Modal */}
       {showScanner && (
         <Modal
-          title="Scan Product Barcode"
+          title="Scan Barcode"
           onClose={() => setShowScanner(false)}
           overlayModal={true}
-          contentClassName="max-w-xl"
         >
           <div className="p-4">
-            <BarcodeScanner
+            <BarcodeScanner 
               onScan={handleBarcodeScan}
               onError={(error) => {
                 console.error('Scanner error:', error);
-                setError(error.message);
+                toast({
+                  title: "Scanner Error",
+                  description: error.message,
+                  variant: "destructive"
+                });
               }}
             />
-            <div className="mt-4 text-center text-sm text-gray-500">
-              Position the barcode in the camera view to scan
+            <div className="mt-4 flex justify-end">
+              <Button onClick={() => setShowScanner(false)}>
+                Cancel
+              </Button>
             </div>
           </div>
         </Modal>
@@ -401,6 +775,20 @@ export default function ProductsPage() {
                 Edit Product
               </Button>
             </div>
+          </div>
+        </Modal>
+      )}
+
+      {isProcessingBarcode && (
+        <Modal
+          title="Processing Barcode"
+          onClose={() => setIsProcessingBarcode(false)}
+          overlayModal={true}
+          contentClassName="max-w-sm"
+        >
+          <div className="p-6 flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+            <p className="text-sm text-gray-600">Processing barcode image...</p>
           </div>
         </Modal>
       )}
@@ -563,8 +951,11 @@ export default function ProductsPage() {
                               <SelectValue placeholder="Select category" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="1">Category 1</SelectItem>
-                              <SelectItem value="2">Category 2</SelectItem>
+                              {categories.map((category) => (
+                                <SelectItem key={category.category_id} value={category.category_id.toString()}>
+                                  {category.name}
+                                </SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         </div>
@@ -933,6 +1324,66 @@ export default function ProductsPage() {
                   </Button>
                 </div>
               </form>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Product Details Modal */}
+      {selectedProduct && isProductDetailsModalOpen && (
+        <Modal
+          title="Product Details"
+          onClose={() => {
+            setIsProductDetailsModalOpen(false);
+            setSelectedProduct(null);
+          }}
+          overlayModal={true}
+          contentClassName="max-w-2xl"
+        >
+          <div className="p-6">
+            <div className="flex items-start gap-4 mb-6">
+              <div className="w-16 h-16 bg-blue-50 rounded-lg flex items-center justify-center">
+                <Package className="w-8 h-8 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900">{selectedProduct.name}</h3>
+                <p className="text-sm text-gray-500">SKU: {selectedProduct.sku}</p>
+                <p className="text-sm text-gray-500">Barcode: {selectedProduct.barcode}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-gray-500">Current Stock</p>
+                <p className="text-2xl font-semibold text-gray-900">{selectedProduct.quantity}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-gray-500">Price</p>
+                <p className="text-2xl font-semibold text-gray-900">₹{parseFloat(selectedProduct.price).toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsProductDetailsModalOpen(false);
+                  setSelectedProduct(null);
+                }}
+                className="bg-white"
+              >
+                Close
+              </Button>
+              <Button
+                onClick={() => {
+                  // Open edit modal or navigate to edit page
+                  setIsProductDetailsModalOpen(false);
+                  // You can add edit functionality here
+                }}
+                className="bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Edit Product
+              </Button>
             </div>
           </div>
         </Modal>
