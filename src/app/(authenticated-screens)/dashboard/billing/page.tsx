@@ -148,7 +148,7 @@ export default function BillingPage() {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Billing</h1>
+        <h1 className="text-2xl font-bold text-foreground">Billing</h1>
         <div className="flex gap-2">
           <Button variant="outline" className="bg-foreground text-background" onClick={handleNewBill}>
             New Bill
@@ -207,9 +207,22 @@ export default function BillingPage() {
                   <TableBody>
                     {billItems.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                          No items added to bill yet. Scan products to begin.
+                        <TableCell>
+                          <Input
+                            ref={barcodeInputRef}
+                            placeholder="Enter barcode"
+                            value={barcodeInput}
+                            onChange={(e) => setBarcodeInput(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleBarcodeSubmit(e as any);
+                              }
+                            }}
+                            className="font-mono text-foreground w-[120px]"
+                          />
                         </TableCell>
+  
                       </TableRow>
                     ) : (
                       billItems.map((item, index) => (
