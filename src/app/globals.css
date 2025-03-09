@@ -25,6 +25,11 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  position: relative;
+  /* overflow-y: hidden; */
 }
 
 @layer utilities {

@@ -1,19 +1,17 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { ArrowLeft, ArrowRight, ChevronDown, Download, Info, Lock, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { PrismaAPIRequest } from "@/lib/utils"
-import { SellProductModal } from "@/components/SellProductModal"
+import { ArrowLeft, ArrowRight, Download, Info, Lock, Search } from "lucide-react"
+import { useEffect, useState } from "react"
 
 import { Modal } from "@/components/ui/modal"
-import { useForm, Controller } from "react-hook-form"
 import { TabSelector } from "@/components/ui/tab-selector"
+import { Controller, useForm } from "react-hook-form"
 
 interface Product {
   product_id: number
@@ -45,7 +43,7 @@ export default function InventoryPage() {
   const handleStockUpdate = async (productId: number, action: 'in' | 'out', currentStock: number, channel_id: number) => {
     try {
       const stock = action === 'in' ? currentStock + 1 : currentStock - 1;
-      
+
       const response = await PrismaAPIRequest(
         "/inventory/update",
         "POST",
@@ -59,11 +57,11 @@ export default function InventoryPage() {
       // Handle successful response
       if (response) {
         // Refresh the product list or update the UI
-        fetchProducts() // Your function to refresh the products list
+        fetchProducts()
       }
     } catch (error) {
       console.error("Failed to update stock:", error)
-      // Handle error (maybe show a toast notification)
+
     }
   }
 
@@ -135,10 +133,10 @@ export default function InventoryPage() {
   const watchSellingPrice = watch('sellingPrice');
 
   const onSubmit = async (data: SellItemFormData) => {
-    
+
     try {
       console.log("data of sell item:",data)
-      
+
       setIsSellModalOpen(false);
       reset(); // Reset form
       fetchProducts(); // Refresh product list
@@ -176,7 +174,6 @@ export default function InventoryPage() {
             </Button>
           </div>
         </div>
-
         <div className="text-sm">
           <Button variant="link" className="p-0 h-auto text-blue-600">
             Warehouse
@@ -275,11 +272,11 @@ export default function InventoryPage() {
                   ₹ {parseFloat(product.price).toFixed(2)}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
-                  {new Date(product.inventory[0]?.last_updated || product.created_at).toLocaleString('en-US', { 
+                  {new Date(product.inventory[0]?.last_updated || product.created_at).toLocaleString('en-US', {
                     weekday: 'short',
                     hour: 'numeric',
                     minute: '2-digit',
-                    hour12: true 
+                    hour12: true
                   })}
                 </TableCell>
                 <TableCell>
@@ -289,8 +286,8 @@ export default function InventoryPage() {
                       variant="outline"
                       className="h-8 bg-green-50 text-green-700 hover:bg-green-100 border-0"
                       onClick={() => handleStockUpdate(
-                        product.product_id, 
-                        'in', 
+                        product.product_id,
+                        'in',
                         product.inventory[0]?.stock || product.quantity || 0,
                         product.inventory[0]?.inventory_id || 0
                       )}
@@ -302,8 +299,8 @@ export default function InventoryPage() {
                       variant="outline"
                       className="h-8 bg-red-50 text-red-700 hover:bg-red-100 border-0"
                       onClick={() => handleStockUpdate(
-                        product.product_id, 
-                        'out', 
+                        product.product_id,
+                        'out',
                         product.inventory[0]?.stock || product.quantity || 0,
                         product.inventory[0]?.inventory_id || 0
                       )}
@@ -405,7 +402,7 @@ export default function InventoryPage() {
             {/* Customer Information */}
             <div className="border rounded-lg p-6">
               <h2 className="text-xl font-bold mb-4 text-muted-foreground">Customer Information</h2>
-              
+
               {/* Customer Type Tabs - Using TabSelector component */}
               <TabSelector
                 options={[
@@ -421,7 +418,7 @@ export default function InventoryPage() {
                 activeTabClassName="text-muted-foreground"
                 inactiveTabClassName="text-muted-foreground"
               />
-              
+
               {/* Customer Details Form */}
               <div className="space-y-4">
                 <div>
@@ -432,9 +429,9 @@ export default function InventoryPage() {
                     rules={{ required: "Customer name is required" }}
                     render={({ field, fieldState }) => (
                       <>
-                        <Input 
+                        <Input
                           {...field}
-                          placeholder="Enter customer name" 
+                          placeholder="Enter customer name"
                           className="text-muted-foreground"
                         />
                         {fieldState.error && (
@@ -444,7 +441,7 @@ export default function InventoryPage() {
                     )}
                   />
                 </div>
-                
+
                 {/* Only show phone and email fields for new customers */}
                 {customerType === "new" && (
                   <div className="grid grid-cols-2 gap-4">
@@ -454,9 +451,9 @@ export default function InventoryPage() {
                         name="phoneNumber"
                         control={control}
                         render={({ field }) => (
-                          <Input 
+                          <Input
                             {...field}
-                            placeholder="Enter phone number" 
+                            placeholder="Enter phone number"
                             className="text-muted-foreground"
                           />
                         )}
@@ -468,9 +465,9 @@ export default function InventoryPage() {
                         name="email"
                         control={control}
                         render={({ field }) => (
-                          <Input 
+                          <Input
                             {...field}
-                            placeholder="Enter email address" 
+                            placeholder="Enter email address"
                             className="text-muted-foreground"
                           />
                         )}
@@ -490,7 +487,7 @@ export default function InventoryPage() {
                   <Controller
                     name="quantity"
                     control={control}
-                    rules={{ 
+                    rules={{
                       required: "Quantity is required",
                       min: {
                         value: 1,
@@ -503,10 +500,10 @@ export default function InventoryPage() {
                     }}
                     render={({ field, fieldState }) => (
                       <>
-                        <Input 
+                        <Input
                           {...field}
-                          type="number" 
-                          min="1" 
+                          type="number"
+                          min="1"
                           max={selectedProduct.inventory[0]?.stock || selectedProduct.quantity || 0}
                           className="text-muted-foreground"
                           onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
@@ -525,7 +522,7 @@ export default function InventoryPage() {
                     control={control}
                     rules={{ required: "Sales channel is required" }}
                     render={({ field }) => (
-                      <Select 
+                      <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
@@ -541,7 +538,7 @@ export default function InventoryPage() {
                   />
                 </div>
               </div>
-              
+
               <div className="mt-4">
                 <label className="block text-sm font-medium mb-1 text-muted-foreground">Selling Price</label>
                 <div className="relative">
@@ -552,7 +549,7 @@ export default function InventoryPage() {
                     rules={{ required: "Selling price is required" }}
                     render={({ field, fieldState }) => (
                       <>
-                        <Input 
+                        <Input
                           {...field}
                           className="pl-8 text-muted-foreground"
                         />
@@ -576,7 +573,7 @@ export default function InventoryPage() {
                   control={control}
                   rules={{ required: "Payment method is required" }}
                   render={({ field }) => (
-                    <Select 
+                    <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
@@ -607,9 +604,9 @@ export default function InventoryPage() {
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-3 mt-6">
-              <Button 
-                type="button" 
-                variant="outline" 
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => {
                   setIsSellModalOpen(false);
                   reset();
@@ -628,4 +625,3 @@ export default function InventoryPage() {
     </div>
   )
 }
-
