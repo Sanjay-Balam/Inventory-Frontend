@@ -18,6 +18,7 @@ import { Package, DollarSign, Boxes, Palette,  } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Image } from "lucide-react"
 import BarcodeScanner from '@/components/BarcodeScanner';
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface Product {
   product_id: number
@@ -67,6 +68,8 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<{category_id: number, name: string}[]>([]);
   const [testBarcode, setTestBarcode] = useState('');
   const [selectedTestBarcode, setSelectedTestBarcode] = useState('987654321098');
+  const [useTestBarcode, setUseTestBarcode] = useState(false);
+  const [testProducts, setTestProducts] = useState<{barcode: string, name: string, sku: string}[]>([]);
 
   const fetchProducts = async () => {
     try {
@@ -103,9 +106,28 @@ export default function ProductsPage() {
     }
   }
 
+  const fetchTestProducts = async () => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/test-products`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch test products');
+      }
+      const data = await response.json();
+      setTestProducts(data);
+    } catch (error) {
+      console.error('Error fetching test products:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load test products. Please refresh the page.",
+        variant: "destructive"
+      });
+    }
+  }
+
   useEffect(() => {
     fetchProducts()
     fetchCategories()
+    fetchTestProducts()
   }, [])
 
   const handleProductAdded = () => {
@@ -271,15 +293,39 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
   }
 
   const file = e.target.files[0];
-  const formData = new FormData();
-  formData.append('barcode', file);
   
+  // Ask the user to enter the barcode value manually
+  const manualBarcode = window.prompt("Please enter the barcode value from the image:", "");
+  
+  if (!manualBarcode) {
+    toast({
+      title: "Barcode Required",
+      description: "A barcode value is required to proceed.",
+      variant: "destructive"
+    });
+    return;
+  }
+  
+  // Create a new FormData object
+  const formData = new FormData();
+  
+  // Rename the file to include the barcode
+  const renamedFile = new File([file], `barcode_${manualBarcode}.jpg`, { type: file.type });
+  formData.append('barcode', renamedFile);
+  
+  // Also add the barcode as a separate field for extra reliability
+  formData.append('testBarcode', manualBarcode);
+  
+  console.log('Using barcode:', manualBarcode);
+  console.log('Renamed file:', renamedFile.name);
+
   try {
     setLoading(true);
     // Clear any previous product selection
     setSelectedProduct(null);
     setIsProductDetailsModalOpen(false);
     
+    console.log('Sending request to:', `${process.env.NEXT_PUBLIC_API_URL}/barcode/upload`);
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/upload`, {
       method: 'POST',
       body: formData,
@@ -304,13 +350,76 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
       // Set product details in state or navigate to product details page
       setSelectedProduct(data.product);
       setIsProductDetailsModalOpen(true);
+    } else if (data.similar_products && data.similar_products.length > 0) {
+      // Similar products found, show the first one
+      const similarProduct = data.similar_products[0];
+      toast({
+        title: "Similar Product Found",
+        description: `Found similar product: ${similarProduct.name} (Barcode: ${similarProduct.barcode})`,
+        variant: "default"
+      });
+      
+      // Ask user if they want to use this similar product
+      const useThisProduct = window.confirm(
+        `No exact match found for barcode ${data.barcode}, but found a similar product: ${similarProduct.name} (${similarProduct.barcode}).\n\nDo you want to use this product?`
+      );
+      
+      if (useThisProduct) {
+        // If the backend already returned the similar product as the main product, use it
+        if (data.product === similarProduct) {
+          setSelectedProduct(similarProduct);
+          setIsProductDetailsModalOpen(true);
+        } else {
+          // Otherwise fetch the full product details
+          const productResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inventory/products/${similarProduct.product_id}`);
+          if (productResponse.ok) {
+            const fullProduct = await productResponse.json();
+            setSelectedProduct(fullProduct);
+            setIsProductDetailsModalOpen(true);
+          } else {
+            // If we can't get the full details, use the similar product
+            setSelectedProduct(similarProduct);
+            setIsProductDetailsModalOpen(true);
+          }
+        }
+      } else {
+        // User doesn't want to use the similar product, ask if they want to create a test product
+        const createNewProduct = window.confirm(
+          `Do you want to create a new test product with barcode ${data.barcode}?`
+        );
+        
+        if (createNewProduct) {
+          toast({
+            title: "Creating Test Product",
+            description: `Creating a test product with barcode ${data.barcode}...`,
+            variant: "default"
+          });
+          
+          await createTestProduct(data.barcode);
+        }
+      }
     } else {
       // No product found with this barcode
       toast({
         title: "No Product Found",
-        description: `Barcode ${data.barcode} was detected, but no matching product was found.`,
+        description: `No product found with barcode ${data.barcode}.`,
         variant: "destructive"
       });
+      
+      // Ask if user wants to create a test product
+      const createNewProduct = window.confirm(
+        `No product found with barcode ${data.barcode}. Do you want to create a test product?`
+      );
+      
+      if (createNewProduct) {
+        toast({
+          title: "Creating Test Product",
+          description: `Creating a test product with barcode ${data.barcode}...`,
+          variant: "default"
+        });
+        
+        await createTestProduct(data.barcode);
+      }
     }
   } catch (error) {
     console.error('Error uploading barcode image:', error);
@@ -328,65 +437,8 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
   }
 };
 
-const handleBarcodeScan = async (barcode: string) => {
-  try {
-    setLoading(true);
-    setScanSuccessMessage(`Barcode detected: ${barcode}`);
-    
-    // Clear any previous product selection
-    setSelectedProduct(null);
-    setIsProductDetailsModalOpen(false);
-    
-    // Use the actual scanned barcode
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/scan/${barcode}`);
-    
-    if (!response.ok) {
-      if (response.status === 404) {
-        toast({
-          title: "Product Not Found",
-          description: `No product found with barcode ${barcode}`,
-          variant: "destructive"
-        });
-        return;
-      }
-      throw new Error('Failed to fetch product');
-    }
-    
-    const data = await response.json();
-    console.log('Product data:', data);
-    
-    // Set product details in state
-    setSelectedProduct(data);
-    setIsProductDetailsModalOpen(true);
-    
-    toast({
-      title: "Product Found",
-      description: `Found product: ${data.name}`,
-      variant: "default"
-    });
-    
-  } catch (error) {
-    console.error('Error processing barcode:', error);
-    toast({
-      title: "Error",
-      description: error instanceof Error ? error.message : 'Failed to process barcode',
-      variant: "destructive"
-    });
-  } finally {
-    setLoading(false);
-  }
-};
-
-const handleCreateTestProduct = async () => {
-  if (!testBarcode) {
-    toast({
-      title: "Error",
-      description: "Please enter a barcode",
-      variant: "destructive"
-    });
-    return;
-  }
-  
+// Add this function to create a test product with a specific barcode
+const createTestProduct = async (barcode: string) => {
   try {
     setLoading(true);
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/create-test-product`, {
@@ -394,7 +446,7 @@ const handleCreateTestProduct = async () => {
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ barcode: testBarcode })
+      body: JSON.stringify({ barcode })
     });
     
     if (!response.ok) {
@@ -407,15 +459,129 @@ const handleCreateTestProduct = async () => {
     
     toast({
       title: "Success",
-      description: data.message || 'Test product created successfully',
+      description: `Test product created with barcode ${barcode}`,
+      variant: "default"
+    });
+    
+    // Set the newly created product as the selected product
+    setSelectedProduct(data.product);
+    setIsProductDetailsModalOpen(true);
+    
+    // Refresh products list
+    fetchProducts();
+    
+    // Refresh test products list
+    fetchTestProducts();
+  } catch (error) {
+    console.error('Error creating test product:', error);
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : 'Failed to create test product',
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleBarcodeScan = async (barcode: string) => {
+  try {
+    setLoading(true);
+    
+    // Determine which barcode to use
+    const barcodeToUse = barcode || selectedTestBarcode;
+    
+    if (!barcodeToUse) {
+      toast({
+        title: "Error",
+        description: "No barcode provided",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    console.log(`Scanning barcode: ${barcodeToUse}`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/scan/${barcodeToUse}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        // Product not found, create a test product
+        toast({
+          title: "Product Not Found",
+          description: `No product found with barcode ${barcodeToUse}. Creating a test product...`,
+          variant: "destructive"
+        });
+        
+        await createTestProduct(barcodeToUse);
+        return;
+      }
+      
+      throw new Error('Failed to scan barcode');
+    }
+    
+    const product = await response.json();
+    console.log('Scan result:', product);
+    
+    toast({
+      title: "Product Found",
+      description: `Found product: ${product.name}`,
+      variant: "default"
+    });
+    
+    // Set product details in state
+    setSelectedProduct(product);
+    setIsProductDetailsModalOpen(true);
+  } catch (error) {
+    console.error('Error scanning barcode:', error);
+    toast({
+      title: "Error",
+      description: error instanceof Error ? error.message : 'Failed to scan barcode',
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+const handleCreateTestProduct = async () => {
+  try {
+    setLoading(true);
+    
+    if (!selectedTestBarcode) {
+      toast({
+        title: "Error",
+        description: "Please select a test barcode",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/create-test-product`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ barcode: selectedTestBarcode })
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to create test product');
+    }
+    
+    const data = await response.json();
+    console.log('Test product created:', data);
+    
+    toast({
+      title: "Success",
+      description: `Test product created with barcode ${selectedTestBarcode}`,
       variant: "default"
     });
     
     // Refresh products list
     fetchProducts();
     
-    // Clear the input
-    setTestBarcode('');
+    // Refresh test products list
+    fetchTestProducts();
   } catch (error) {
     console.error('Error creating test product:', error);
     toast({
@@ -432,42 +598,93 @@ const handleDirectScan = async () => {
   try {
     setLoading(true);
     
-    // Clear any previous product selection
-    setSelectedProduct(null);
-    setIsProductDetailsModalOpen(false);
+    if (!selectedTestBarcode) {
+      toast({
+        title: "Error",
+        description: "Please select a test barcode",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    // Use the selected test barcode
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/scan/${selectedTestBarcode}`);
     
     if (!response.ok) {
       if (response.status === 404) {
+        // Product not found, create a test product
         toast({
           title: "Product Not Found",
-          description: `No product found with barcode ${selectedTestBarcode}`,
+          description: `No product found with barcode ${selectedTestBarcode}. Creating a test product...`,
           variant: "destructive"
         });
+        
+        await createTestProduct(selectedTestBarcode);
         return;
       }
-      throw new Error('Failed to fetch product');
+      
+      throw new Error('Failed to scan barcode');
     }
     
-    const data = await response.json();
-    console.log('Product data:', data);
-    
-    // Set product details in state
-    setSelectedProduct(data);
-    setIsProductDetailsModalOpen(true);
+    const product = await response.json();
+    console.log('Direct scan result:', product);
     
     toast({
       title: "Product Found",
-      description: `Found product: ${data.name} (Barcode: ${data.barcode})`,
+      description: `Found product: ${product.name}`,
       variant: "default"
     });
+    
+    // Set product details in state
+    setSelectedProduct(product);
+    setIsProductDetailsModalOpen(true);
   } catch (error) {
-    console.error('Error scanning barcode:', error);
+    console.error('Error scanning barcode directly:', error);
     toast({
       title: "Error",
-      description: error instanceof Error ? error.message : 'Failed to process barcode',
+      description: error instanceof Error ? error.message : 'Failed to scan barcode',
+      variant: "destructive"
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
+// Update the testSpecificBarcode function to use the new endpoint
+const testSpecificBarcode = async () => {
+  setLoading(true);
+  try {
+    // Use the selected test barcode or default to a specific one
+    const testBarcode = selectedTestBarcode || "943017293025";
+    
+    // First try the test endpoint
+    console.log(`Testing specific barcode: ${testBarcode}`);
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/test/${testBarcode}`);
+    const data = await response.json();
+    
+    console.log("Test barcode response:", data);
+    
+    if (data.product) {
+      toast({
+        title: "Success",
+        description: `Found product: ${data.product.name}`,
+        variant: "default"
+      });
+      
+      // Set product details in state
+      setSelectedProduct(data.product);
+      setIsProductDetailsModalOpen(true);
+      setLoading(false);
+      return;
+    }
+    
+    // If no product found, try to create a test product
+    console.log("No product found, creating test product...");
+    await createTestProduct(testBarcode);
+  } catch (error) {
+    console.error("Error testing barcode:", error);
+    toast({
+      title: "Error",
+      description: `Error testing barcode: ${error instanceof Error ? error.message : 'Unknown error'}`,
       variant: "destructive"
     });
   } finally {
@@ -528,8 +745,7 @@ const handleDirectScan = async () => {
             </SelectTrigger>
             <SelectContent className="bg-white">
               <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="electronics">Electronics</SelectItem>
-              <SelectItem value="clothing">Clothing</SelectContent>
+              <SelectItem value="electronics">Electronics</SelectContent>
           </Select> */}
         </div>
 
@@ -606,97 +822,6 @@ const handleDirectScan = async () => {
         </div>
       </div>
 
-      {/* Add this in the JSX where you want the barcode scanner to appear */}
-      <div className="mt-6 p-4 border rounded-lg bg-white">
-        <h3 className="text-lg font-medium mb-4">Scan Barcode</h3>
-        <div className="flex flex-col gap-4">
-          <div className="space-y-2 mb-4">
-            <Label htmlFor="test-barcode-select" className="block text-sm font-medium text-gray-700">
-              Select Test Barcode
-            </Label>
-            <Select 
-              value={selectedTestBarcode}
-              onValueChange={(value) => setSelectedTestBarcode(value)}
-            >
-              <SelectTrigger className="border-gray-300 rounded-lg">
-                <SelectValue placeholder="Select a test barcode" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="123456789012">Test Product (123456789012)</SelectItem>
-                <SelectItem value="987654321098">Test Product (987654321098)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label htmlFor="barcode-upload" className="block text-sm font-medium text-gray-700 mb-2">
-              Upload Barcode Image
-            </label>
-            <input
-              id="barcode-upload"
-              type="file"
-              accept="image/*"
-              onChange={handleBarcodeImageUpload}
-              className="block w-full text-sm text-gray-500
-                file:mr-4 file:py-2 file:px-4
-                file:rounded-md file:border-0
-                file:text-sm file:font-semibold
-                file:bg-blue-50 file:text-blue-700
-                hover:file:bg-blue-100"
-              disabled={loading}
-            />
-          </div>
-          
-          <div className="mt-4">
-            <Button 
-              onClick={() => setShowScanner(true)}
-              disabled={loading}
-              className="w-full"
-            >
-              Scan with Camera
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Add this after the barcode scanner section */}
-      <div className="mt-6 p-4 border rounded-lg bg-white">
-        <h3 className="text-lg font-medium mb-4">Create Test Product</h3>
-        <div className="flex flex-col gap-4">
-          <div>
-            <Label htmlFor="test-barcode" className="block text-sm font-medium text-gray-700 mb-2">
-              Barcode
-            </Label>
-            <div className="flex gap-2">
-              <Input
-                id="test-barcode"
-                placeholder="Enter barcode (e.g., 123456789012)"
-                value={testBarcode}
-                onChange={(e) => setTestBarcode(e.target.value)}
-                className="flex-1"
-              />
-              <Button 
-                onClick={handleCreateTestProduct}
-                disabled={loading || !testBarcode}
-              >
-                Create
-              </Button>
-            </div>
-          </div>
-          <p className="text-xs text-gray-500">
-            This will create a test product with the specified barcode for testing purposes.
-          </p>
-        </div>
-      </div>
-
-      {/* Add this after the Select dropdown */}
-      <div className="mt-4">
-        <Button 
-          onClick={handleDirectScan}
-          className="w-full"
-        >
-          Scan Selected Barcode Directly
-        </Button>
-      </div>
 
       {/* Scanner Modal */}
       {showScanner && (
@@ -1252,6 +1377,54 @@ const handleDirectScan = async () => {
                   </div>
                 </section>
 
+                {/* Add this before the test barcode select */}
+                <div className="flex items-center space-x-2 mb-4">
+                  <Checkbox 
+                    id="use-test-barcode" 
+                    checked={useTestBarcode} 
+                    onCheckedChange={(checked: boolean | "indeterminate") => setUseTestBarcode(checked === true)}
+                  />
+                  <label
+                    htmlFor="use-test-barcode"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    Use Test Barcode (for testing only)
+                  </label>
+                </div>
+
+                {/* Update the test barcode select to only show when useTestBarcode is true */}
+                {useTestBarcode && (
+                  <div className="space-y-2 mb-4">
+                    <Label htmlFor="test-barcode-select" className="block text-sm font-medium text-gray-700">
+                      Select Test Barcode
+                    </Label>
+                    <Select 
+                      value={selectedTestBarcode}
+                      onValueChange={(value) => setSelectedTestBarcode(value)}
+                    >
+                      <SelectTrigger className="border-gray-300 rounded-lg">
+                        <SelectValue placeholder="Select a test barcode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {testProducts.map((product) => (
+                          <SelectItem key={product.barcode} value={product.barcode}>
+                            {product.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {/* Add this before the file upload input */}
+                <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
+                  <p className="text-sm text-blue-700">
+                    {useTestBarcode 
+                      ? "Test Mode: Using pre-selected barcode instead of detecting from image" 
+                      : "Real Mode: Detecting barcode from uploaded image"}
+                  </p>
+                </div>
+
                 {error && (
                   <div className="p-4 rounded-lg bg-red-50 border border-red-200">
                     <div className="flex items-center gap-2">
@@ -1288,6 +1461,31 @@ const handleDirectScan = async () => {
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Only show the direct scan button when in test mode */}
+                {useTestBarcode && (
+                  <div className="mt-4">
+                    <Button 
+                      onClick={handleDirectScan}
+                      className="w-full"
+                    >
+                      Scan Selected Barcode Directly
+                    </Button>
+                  </div>
+                )}
+
+                {/* Add this after the test barcode dropdown */}
+                {useTestBarcode && (
+                  <div className="mt-2">
+                    <Button 
+                      onClick={testSpecificBarcode}
+                      className="w-full"
+                      variant="outline"
+                    >
+                      Test Specific Barcode (112342000911)
+                    </Button>
                   </div>
                 )}
 
