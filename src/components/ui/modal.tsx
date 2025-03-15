@@ -16,7 +16,7 @@ interface ModalProps {
 
 export const Modal = ({
   children,
-  alignment,
+  alignment = "center",
   contentClassName,
   title,
   overlayModal,
@@ -35,33 +35,35 @@ export const Modal = ({
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, []);
+  }, [onClose]);
 
   return (
     <div
-
       className={cn(
-        "fixed inset-0 z-10 flex bg-black bg-opacity-50 backdrop-blur-sm ",
+        "fixed inset-0 z-50 flex",
         alignment === "center" && "justify-center items-center",
         alignment === "top" && "justify-center items-start",
-        overlayModal && "bg-opacity-0 backdrop-blur-[1px]"
+        overlayModal ? "bg-[#0c0c0d] bg-opacity-0 backdrop-blur-[1px]" : "bg-[#0c0c0d] bg-opacity-50 backdrop-blur-sm"
       )}
+      onClick={(e) => {
+        // Close modal when clicking on the backdrop
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
     >
-
       <div
         id={id}
         className={cn(
           "bg-white rounded-xl",
-          // ," shadow-lg ",
           "w-full max-w-[50vw] max-h-[80vh] border border-border",
           alignment === "center" && "p-6",
           alignment === "top" && "p-6 mt-32",
           contentClassName
         )}
       >
-
         {title && (
-          <div className={cn("flex items-center justify-between ")}>
+          <div className={cn("mt-2 p-2 flex items-center justify-between")}>
             <p className="text-sm font-normal text-[#8A8A8A]">{title}</p>
             <div
               className="cursor-pointer"
@@ -77,7 +79,6 @@ export const Modal = ({
 
         {children}
       </div>
-
     </div>
   );
 };
