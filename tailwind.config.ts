@@ -30,6 +30,9 @@ const config: Config = {
           DEFAULT: "#FEF9C3",
           foreground: "#AD864F",
         },
+        modal: {
+          overlay: "rgba(0, 0, 0, 0.75)",
+        },
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
