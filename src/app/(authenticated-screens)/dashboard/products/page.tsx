@@ -1,24 +1,19 @@
 "use client"
 
-import { PrismaAPIRequest } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 // Removed the import for Avatar and AvatarFallback due to the error
-import { ChevronDown, ChevronRight, MoreHorizontal, Plus, SlidersHorizontal } from "lucide-react"
+import BarcodeScanner from '@/components/BarcodeScanner'
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useEffect, useState } from "react"
-import { Modal } from "@/components/ui/modal"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/components/ui/use-toast"
-import { Textarea } from "@/components/ui/textarea"
-import { Package, DollarSign, Boxes, Palette,  } from "lucide-react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Image } from "lucide-react"
-import BarcodeScanner from '@/components/BarcodeScanner';
 import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { Modal } from "@/components/ui/modal"
+import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/components/ui/use-toast"
+import { Boxes, ChevronDown, ChevronRight, DollarSign, Image, MoreHorizontal, Package, Palette, SlidersHorizontal } from "lucide-react"
+import { useEffect, useState } from "react"
 
 interface Product {
   product_id: number
@@ -53,7 +48,7 @@ export default function ProductsPage() {
     size: "",
     variant_1: "",
     variant_2: "",
-    description: "",  
+    description: "",
     image_url: "",
     final_selling_price: ""
   })
@@ -74,7 +69,7 @@ export default function ProductsPage() {
   const fetchProducts = async () => {
     try {
       const response = await fetch("http://localhost:3000/api/inventory/products");
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch products')
       }
@@ -171,11 +166,11 @@ export default function ProductsPage() {
     setError(null);
     setSuccessMessage(null);
     setBarcodeUrl(null);
-    
+
     // Validate required fields
     const requiredFields = ['name', 'category_id', 'sku', 'price', 'cost_price', 'quantity', 'low_stock_threshold'];
     const missingFields = requiredFields.filter(field => !formData[field as keyof typeof formData]);
-    
+
     if (missingFields.length > 0) {
       setError(`Please fill in all required fields: ${missingFields.join(', ')}`);
       toast({
@@ -186,7 +181,7 @@ export default function ProductsPage() {
       setLoading(false);
       return;
     }
-    
+
     // Validate numeric fields
     const numericFields = ['price', 'cost_price', 'quantity', 'low_stock_threshold'];
     for (const field of numericFields) {
@@ -202,7 +197,7 @@ export default function ProductsPage() {
         return;
       }
     }
-    
+
     try {
         // Use the environment variable for the API URL
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/inventory/products`, {
@@ -214,21 +209,21 @@ export default function ProductsPage() {
         });
 
         const data = await response.json();
-        
+
         if (!response.ok) {
             throw new Error(data.error || 'Failed to add product');
         }
-        
+
         // Set success message
         setSuccessMessage(`Product "${data.name}" added successfully!`);
-        
+
         // Handle barcode
         if (data.barcodeUrl) {
             setBarcodeUrl(data.barcodeUrl);
-            
+
             // Show success message with barcode info
             setSuccessMessage(`Product "${data.name}" added successfully! A barcode has been generated.`);
-            
+
             // Optional: Automatically download barcode
             setTimeout(() => {
                 try {
@@ -251,7 +246,7 @@ export default function ProductsPage() {
 
         // Reset form and refresh product list
         handleProductAdded();
-        
+
         // Close modal after a delay to show success message
         setTimeout(() => {
             setIsModalOpen(false);
@@ -269,7 +264,7 @@ export default function ProductsPage() {
                 size: "",
                 variant_1: "",
                 variant_2: "",
-                description: "",  
+                description: "",
                 image_url: "",
                 final_selling_price: ""
             });
@@ -293,10 +288,10 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
   }
 
   const file = e.target.files[0];
-  
+
   // Ask the user to enter the barcode value manually
   const manualBarcode = window.prompt("Please enter the barcode value from the image:", "");
-  
+
   if (!manualBarcode) {
     toast({
       title: "Barcode Required",
@@ -305,17 +300,17 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
     });
     return;
   }
-  
+
   // Create a new FormData object
   const formData = new FormData();
-  
+
   // Rename the file to include the barcode
   const renamedFile = new File([file], `barcode_${manualBarcode}.jpg`, { type: file.type });
   formData.append('barcode', renamedFile);
-  
+
   // Also add the barcode as a separate field for extra reliability
   formData.append('testBarcode', manualBarcode);
-  
+
   console.log('Using barcode:', manualBarcode);
   console.log('Renamed file:', renamedFile.name);
 
@@ -324,7 +319,7 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
     // Clear any previous product selection
     setSelectedProduct(null);
     setIsProductDetailsModalOpen(false);
-    
+
     console.log('Sending request to:', `${process.env.NEXT_PUBLIC_API_URL}/barcode/upload`);
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/upload`, {
       method: 'POST',
@@ -346,7 +341,7 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
         description: `Found product: ${data.product.name} (Barcode: ${data.barcode})`,
         variant: "default"
       });
-      
+
       // Set product details in state or navigate to product details page
       setSelectedProduct(data.product);
       setIsProductDetailsModalOpen(true);
@@ -358,12 +353,12 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
         description: `Found similar product: ${similarProduct.name} (Barcode: ${similarProduct.barcode})`,
         variant: "default"
       });
-      
+
       // Ask user if they want to use this similar product
       const useThisProduct = window.confirm(
         `No exact match found for barcode ${data.barcode}, but found a similar product: ${similarProduct.name} (${similarProduct.barcode}).\n\nDo you want to use this product?`
       );
-      
+
       if (useThisProduct) {
         // If the backend already returned the similar product as the main product, use it
         if (data.product === similarProduct) {
@@ -387,14 +382,14 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
         const createNewProduct = window.confirm(
           `Do you want to create a new test product with barcode ${data.barcode}?`
         );
-        
+
         if (createNewProduct) {
           toast({
             title: "Creating Test Product",
             description: `Creating a test product with barcode ${data.barcode}...`,
             variant: "default"
           });
-          
+
           await createTestProduct(data.barcode);
         }
       }
@@ -405,19 +400,19 @@ const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) 
         description: `No product found with barcode ${data.barcode}.`,
         variant: "destructive"
       });
-      
+
       // Ask if user wants to create a test product
       const createNewProduct = window.confirm(
         `No product found with barcode ${data.barcode}. Do you want to create a test product?`
       );
-      
+
       if (createNewProduct) {
         toast({
           title: "Creating Test Product",
           description: `Creating a test product with barcode ${data.barcode}...`,
           variant: "default"
         });
-        
+
         await createTestProduct(data.barcode);
       }
     }
@@ -448,28 +443,28 @@ const createTestProduct = async (barcode: string) => {
       },
       body: JSON.stringify({ barcode })
     });
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Failed to create test product');
     }
-    
+
     const data = await response.json();
     console.log('Test product created:', data);
-    
+
     toast({
       title: "Success",
       description: `Test product created with barcode ${barcode}`,
       variant: "default"
     });
-    
+
     // Set the newly created product as the selected product
     setSelectedProduct(data.product);
     setIsProductDetailsModalOpen(true);
-    
+
     // Refresh products list
     fetchProducts();
-    
+
     // Refresh test products list
     fetchTestProducts();
   } catch (error) {
@@ -487,10 +482,10 @@ const createTestProduct = async (barcode: string) => {
 const handleBarcodeScan = async (barcode: string) => {
   try {
     setLoading(true);
-    
+
     // Determine which barcode to use
     const barcodeToUse = barcode || selectedTestBarcode;
-    
+
     if (!barcodeToUse) {
       toast({
         title: "Error",
@@ -499,10 +494,10 @@ const handleBarcodeScan = async (barcode: string) => {
       });
       return;
     }
-    
+
     console.log(`Scanning barcode: ${barcodeToUse}`);
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/scan/${barcodeToUse}`);
-    
+
     if (!response.ok) {
       if (response.status === 404) {
         // Product not found, create a test product
@@ -511,23 +506,23 @@ const handleBarcodeScan = async (barcode: string) => {
           description: `No product found with barcode ${barcodeToUse}. Creating a test product...`,
           variant: "destructive"
         });
-        
+
         await createTestProduct(barcodeToUse);
         return;
       }
-      
+
       throw new Error('Failed to scan barcode');
     }
-    
+
     const product = await response.json();
     console.log('Scan result:', product);
-    
+
     toast({
       title: "Product Found",
       description: `Found product: ${product.name}`,
       variant: "default"
     });
-    
+
     // Set product details in state
     setSelectedProduct(product);
     setIsProductDetailsModalOpen(true);
@@ -546,7 +541,7 @@ const handleBarcodeScan = async (barcode: string) => {
 const handleCreateTestProduct = async () => {
   try {
     setLoading(true);
-    
+
     if (!selectedTestBarcode) {
       toast({
         title: "Error",
@@ -555,7 +550,7 @@ const handleCreateTestProduct = async () => {
       });
       return;
     }
-    
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/create-test-product`, {
       method: 'POST',
       headers: {
@@ -563,23 +558,23 @@ const handleCreateTestProduct = async () => {
       },
       body: JSON.stringify({ barcode: selectedTestBarcode })
     });
-    
+
     if (!response.ok) {
       throw new Error('Failed to create test product');
     }
-    
+
     const data = await response.json();
     console.log('Test product created:', data);
-    
+
     toast({
       title: "Success",
       description: `Test product created with barcode ${selectedTestBarcode}`,
       variant: "default"
     });
-    
+
     // Refresh products list
     fetchProducts();
-    
+
     // Refresh test products list
     fetchTestProducts();
   } catch (error) {
@@ -597,7 +592,7 @@ const handleCreateTestProduct = async () => {
 const handleDirectScan = async () => {
   try {
     setLoading(true);
-    
+
     if (!selectedTestBarcode) {
       toast({
         title: "Error",
@@ -606,9 +601,9 @@ const handleDirectScan = async () => {
       });
       return;
     }
-    
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/scan/${selectedTestBarcode}`);
-    
+
     if (!response.ok) {
       if (response.status === 404) {
         // Product not found, create a test product
@@ -617,23 +612,23 @@ const handleDirectScan = async () => {
           description: `No product found with barcode ${selectedTestBarcode}. Creating a test product...`,
           variant: "destructive"
         });
-        
+
         await createTestProduct(selectedTestBarcode);
         return;
       }
-      
+
       throw new Error('Failed to scan barcode');
     }
-    
+
     const product = await response.json();
     console.log('Direct scan result:', product);
-    
+
     toast({
       title: "Product Found",
       description: `Found product: ${product.name}`,
       variant: "default"
     });
-    
+
     // Set product details in state
     setSelectedProduct(product);
     setIsProductDetailsModalOpen(true);
@@ -655,28 +650,28 @@ const testSpecificBarcode = async () => {
   try {
     // Use the selected test barcode or default to a specific one
     const testBarcode = selectedTestBarcode || "943017293025";
-    
+
     // First try the test endpoint
     console.log(`Testing specific barcode: ${testBarcode}`);
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/barcode/test/${testBarcode}`);
     const data = await response.json();
-    
+
     console.log("Test barcode response:", data);
-    
+
     if (data.product) {
       toast({
         title: "Success",
         description: `Found product: ${data.product.name}`,
         variant: "default"
       });
-      
+
       // Set product details in state
       setSelectedProduct(data.product);
       setIsProductDetailsModalOpen(true);
       setLoading(false);
       return;
     }
-    
+
     // If no product found, try to create a test product
     console.log("No product found, creating test product...");
     await createTestProduct(testBarcode);
@@ -771,15 +766,15 @@ const testSpecificBarcode = async () => {
             onClick={() => document.getElementById('barcode-upload')?.click()}
             className="gap-2 text-muted-foreground"
           >
-            <svg 
-              xmlns="http://www.w3.org/2000/svg" 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
-              strokeWidth="2" 
-              strokeLinecap="round" 
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
               strokeLinejoin="round"
             >
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -813,7 +808,7 @@ const testSpecificBarcode = async () => {
             </svg>
             Scan Barcode
           </Button>
-          <Button 
+          <Button
             onClick={() => setIsModalOpen(true)}
             className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
           >
@@ -831,7 +826,7 @@ const testSpecificBarcode = async () => {
           overlayModal={true}
         >
           <div className="p-4">
-            <BarcodeScanner 
+            <BarcodeScanner
               onScan={handleBarcodeScan}
               onError={(error) => {
                 console.error('Scanner error:', error);
@@ -1065,11 +1060,11 @@ const testSpecificBarcode = async () => {
                           <Label htmlFor="category_id" className="text-sm font-medium text-gray-700">
                             Category <span className="text-red-500">*</span>
                           </Label>
-                          <Select 
-                            name="category_id" 
+                          <Select
+                            name="category_id"
                             value={formData.category_id}
-                            onValueChange={(value) => handleChange({ 
-                              target: { name: 'category_id', value } 
+                            onValueChange={(value) => handleChange({
+                              target: { name: 'category_id', value }
                             } as React.ChangeEvent<HTMLInputElement>)}
                           >
                             <SelectTrigger className="border-gray-300 rounded-lg">
@@ -1114,7 +1109,7 @@ const testSpecificBarcode = async () => {
                           <p className="text-xs text-gray-500">Leave empty to auto-generate</p>
                         </div>
                       </div>
-                      
+
                       {/* Barcode Preview Section */}
                       <div className="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex items-start gap-4">
@@ -1379,9 +1374,9 @@ const testSpecificBarcode = async () => {
 
                 {/* Add this before the test barcode select */}
                 <div className="flex items-center space-x-2 mb-4">
-                  <Checkbox 
-                    id="use-test-barcode" 
-                    checked={useTestBarcode} 
+                  <Checkbox
+                    id="use-test-barcode"
+                    checked={useTestBarcode}
                     onCheckedChange={(checked: boolean | "indeterminate") => setUseTestBarcode(checked === true)}
                   />
                   <label
@@ -1398,7 +1393,7 @@ const testSpecificBarcode = async () => {
                     <Label htmlFor="test-barcode-select" className="block text-sm font-medium text-gray-700">
                       Select Test Barcode
                     </Label>
-                    <Select 
+                    <Select
                       value={selectedTestBarcode}
                       onValueChange={(value) => setSelectedTestBarcode(value)}
                     >
@@ -1419,8 +1414,8 @@ const testSpecificBarcode = async () => {
                 {/* Add this before the file upload input */}
                 <div className="mb-4 p-3 bg-blue-50 rounded-md border border-blue-200">
                   <p className="text-sm text-blue-700">
-                    {useTestBarcode 
-                      ? "Test Mode: Using pre-selected barcode instead of detecting from image" 
+                    {useTestBarcode
+                      ? "Test Mode: Using pre-selected barcode instead of detecting from image"
                       : "Real Mode: Detecting barcode from uploaded image"}
                   </p>
                 </div>
@@ -1435,7 +1430,7 @@ const testSpecificBarcode = async () => {
                     </div>
                   </div>
                 )}
-                
+
                 {successMessage && (
                   <div className="p-4 rounded-lg bg-green-50 border border-green-200">
                     <div className="flex items-start gap-3">
@@ -1447,9 +1442,9 @@ const testSpecificBarcode = async () => {
                         {barcodeUrl && (
                           <div className="mt-2">
                             <div className="flex items-center gap-2 mb-1">
-                              <img 
-                                src={barcodeUrl} 
-                                alt="Product Barcode" 
+                              <img
+                                src={barcodeUrl}
+                                alt="Product Barcode"
                                 className="h-12 border border-green-200 bg-white p-1 rounded"
                               />
                               <div>
@@ -1467,7 +1462,7 @@ const testSpecificBarcode = async () => {
                 {/* Only show the direct scan button when in test mode */}
                 {useTestBarcode && (
                   <div className="mt-4">
-                    <Button 
+                    <Button
                       onClick={handleDirectScan}
                       className="w-full"
                     >
@@ -1479,7 +1474,7 @@ const testSpecificBarcode = async () => {
                 {/* Add this after the test barcode dropdown */}
                 {useTestBarcode && (
                   <div className="mt-2">
-                    <Button 
+                    <Button
                       onClick={testSpecificBarcode}
                       className="w-full"
                       variant="outline"
@@ -1490,16 +1485,16 @@ const testSpecificBarcode = async () => {
                 )}
 
                 <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 flex justify-end gap-3 mt-8">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+                  <Button
+                    type="button"
+                    variant="outline"
                     onClick={() => setIsModalOpen(false)}
                     className="bg-white border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg"
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    type="submit" 
+                  <Button
+                    type="submit"
                     disabled={loading}
                     className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                   >
@@ -1589,4 +1584,3 @@ const testSpecificBarcode = async () => {
     </div>
   )
 }
-
