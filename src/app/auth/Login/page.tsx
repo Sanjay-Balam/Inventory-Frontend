@@ -1,12 +1,12 @@
 "use client"
 
+import { loginSchema, type LoginSchema } from "@/lib/validations/auth"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Eye, EyeOff } from "lucide-react"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { useRouter } from "next/navigation"
-import Link from "next/link"
-import { loginSchema, type LoginSchema } from "@/lib/validations/auth"
-import { Eye, EyeOff } from "lucide-react"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api"
 
@@ -48,7 +48,7 @@ export default function LoginPage() {
 
       if (result.authToken && result.refreshToken) {
         // Store authToken without 'Bearer ' prefix
-        const authToken = result.authToken.startsWith('Bearer ') 
+        const authToken = result.authToken.startsWith('Bearer ')
           ? result.authToken.replace('Bearer ', '')
           : result.authToken
         localStorage.setItem("authToken", authToken)
@@ -151,4 +151,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
