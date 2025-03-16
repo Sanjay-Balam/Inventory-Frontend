@@ -1,17 +1,17 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { BrowserMultiFormatReader, Exception } from '@zxing/library';
 import { beepSound } from '@/lib/beepSound';
+import { BrowserMultiFormatReader, Result } from '@zxing/library';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface BarcodeScannerProps {
   onScan: (barcode: string) => void;
-  onError?: (error: Error) => void;
+  onError: (error: Error) => void;
 }
 
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onError }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -33,7 +33,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onError }) => {
       // Create an optimized image object
       const img = new Image();
       img.src = URL.createObjectURL(file);
-      
+
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = () => reject(new Error('Failed to load image'));
@@ -50,7 +50,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onError }) => {
       const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
       canvas.width = img.width * scale;
       canvas.height = img.height * scale;
-      
+
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Could not get canvas context');
 
@@ -65,12 +65,12 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onError }) => {
 
       // Attempt to detect barcode
       const result = await codeReaderRef.current.decode(processedImage);
-      
+
       if (result) {
         // Play success sound
         const audio = new Audio(beepSound);
         await audio.play().catch(console.error);
-        
+
         // Call the onScan callback with the result
         onScan(result.getText());
       }
@@ -80,13 +80,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onError }) => {
     } catch (error) {
       console.error('Error processing image:', error);
       let errorMessage = 'Could not detect barcode in image. Please try again with a clearer image.';
-      
+
       if (error instanceof Exception && error.name === 'NotFoundException') {
         errorMessage = 'No barcode found in the image. Please try a different image or ensure the barcode is clearly visible.';
       }
-      
+
       setError(errorMessage);
-      onError?.(error as Error);
+      onError(error as Error);
     } finally {
       setIsProcessingImage(false);
       if (fileInputRef.current) {
@@ -96,149 +96,68 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onScan, onError }) => {
   };
 
   useEffect(() => {
+    const codeReader = new BrowserMultiFormatReader();
     let mounted = true;
-    let retryCount = 0;
-    const maxRetries = 3;
 
-    const startScanner = async () => {
+    const startScanning = async () => {
       try {
-        // Initialize the code reader
-        codeReaderRef.current = new BrowserMultiFormatReader();
-        
-        if (!videoRef.current) return;
+        setIsScanning(true);
+        const videoInputDevices = await codeReader.listVideoInputDevices();
 
-        // First, stop any existing streams
-        if (videoRef.current.srcObject) {
-          const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-          tracks.forEach(track => track.stop());
-          videoRef.current.srcObject = null;
+        if (videoInputDevices.length === 0) {
+          throw new Error('No video input devices found');
         }
 
-        // Get available cameras
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        console.log('Available cameras:', videoDevices);
-        
-        if (videoDevices.length === 0) {
-          throw new Error('No camera found');
-        }
+        const selectedDeviceId = videoInputDevices[0].deviceId;
 
-        // Request camera permission first
-        const constraints = {
-          video: {
-            deviceId: videoDevices[0].deviceId,
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          }
-        };
-
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia(constraints);
-          if (!mounted) {
-            stream.getTracks().forEach(track => track.stop());
-            return;
-          }
-
-          // Set the stream to video element
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            // Wait for video to be ready
-            await new Promise((resolve) => {
-              if (videoRef.current) {
-                videoRef.current.onloadedmetadata = () => resolve(true);
-              }
-            });
-            
-            await videoRef.current.play();
-            if (!mounted) return;
-            
-            setIsScanning(true);
-            setError(null);
-
-            // Start continuous scanning
-            while (mounted && videoRef.current && codeReaderRef.current) {
-              try {
-                const result = await codeReaderRef.current.decodeFromVideoElement(videoRef.current);
-                if (result && mounted) {
-                  console.log('Barcode detected:', result.getText());
-                  // Play the embedded beep sound on successful scan
-                  const audio = new Audio(beepSound);
-                  audio.play().catch((e) => console.error('Audio play error:', e));
+        if (videoRef.current) {
+          await codeReader.decodeFromVideoDevice(
+            selectedDeviceId,
+            videoRef.current,
+            (result: Result | null, error?: Error) => {
+              if (mounted) {
+                if (result) {
                   onScan(result.getText());
-                  // Add a small delay after successful scan
-                  await new Promise(resolve => setTimeout(resolve, 500));
                 }
-              } catch (error: any) {
-                if (error.name !== 'NotFoundException') {
-                  console.error('Scanning error:', error);
-                  onError?.(error);
-                  if (retryCount < maxRetries) {
-                    retryCount++;
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    continue;
-                  } else {
-                    setError('Camera error. Please refresh the page or try a different browser.');
-                    break;
-                  }
+                if (error && error?.name !== 'NotFoundException') {
+                  onError(error);
                 }
-                // Add a small delay to prevent high CPU usage
-                await new Promise(resolve => setTimeout(resolve, 100));
               }
             }
-          }
-        } catch (err) {
-          console.error('Camera access error:', err);
-          if (mounted) {
-            setIsScanning(false);
-            setError('Could not access camera. Please ensure you have granted camera permissions.');
-            onError?.(err as Error);
-          }
+          );
         }
       } catch (err) {
-        console.error('Scanner initialization error:', err);
         if (mounted) {
+          onError(err instanceof Error ? err : new Error('Failed to initialize scanner'));
           setIsScanning(false);
-          setError('Failed to initialize scanner. Please refresh the page.');
-          onError?.(err as Error);
         }
       }
     };
 
-    startScanner();
+    startScanning();
 
-    // Cleanup function
     return () => {
       mounted = false;
-      console.log('Cleaning up scanner...');
-      if (videoRef.current?.srcObject) {
-        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
-        tracks.forEach(track => track.stop());
-      }
-      if (codeReaderRef.current) {
-        codeReaderRef.current.reset();
-      }
+      codeReader.reset();
       setIsScanning(false);
     };
   }, [onScan, onError]);
 
   return (
-    <div className="relative w-full max-w-md mx-auto">
-      <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden relative">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          playsInline
-          muted
-          autoPlay
-        />
-        {isScanning && !error && (
-          <div className="absolute inset-0 border-2 border-blue-500 animate-pulse pointer-events-none">
-            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-blue-500 transform -translate-y-1/2"></div>
-          </div>
-        )}
+    <div className="relative">
+      <video
+        ref={videoRef}
+        className="w-full h-[300px] object-cover rounded-lg"
+      />
+      {isScanning && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-64 h-64 border-2 border-blue-500 rounded-lg animate-pulse" />
+        </div>
+      )}
+      <div className="mt-2 text-center text-sm text-gray-600">
+        {isScanning ? 'Scanning for barcode...' : 'Starting camera...'}
       </div>
-      
+
       {/* Image upload section */}
       <div className="mt-4 flex flex-col items-center gap-2">
         <div className="relative w-full">
