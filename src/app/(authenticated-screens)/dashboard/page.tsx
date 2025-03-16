@@ -2,19 +2,20 @@
 
 import {
     AlertTriangle,
+    ArrowUpRight,
     BarChart3,
     Box,
     CheckCircle,
-    Clock,
     DollarSign,
     Package,
     Palette,
+    Search,
     ShoppingCart,
     TrendingDown,
-    TrendingUp,
+    TrendingUp
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
     CartesianGrid,
     Legend,
@@ -23,7 +24,7 @@ import {
     ResponsiveContainer,
     Tooltip,
     XAxis,
-    YAxis,
+    YAxis
 } from "recharts"
 
 import { Product, productsAtom } from "@/atoms/products"
@@ -33,11 +34,21 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Modal } from "@/components/ui/modal"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useProducts } from "@/hooks/useProducts"
 import { useAtom } from "jotai"
 
+interface Order {
+  id: number
+  product: string
+  sku: string
+  items: number
+  total: number
+  status: string
+  date: string
+}
 
 const dummyAnalysisData = [
   { month: "Jan", income: 12000, expenses: 7000 },
@@ -47,6 +58,43 @@ const dummyAnalysisData = [
   { month: "May", income: 18000, expenses: 12000 },
   { month: "Jun", income: 14000, expenses: 8000 },
   { month: "Jul", income: 16000, expenses: 10000 },
+]
+
+const topProducts = [
+  { name: "Premium Laptop", sales: 124, revenue: 186000, growth: 12.5 },
+  { name: "Wireless Earbuds", sales: 89, revenue: 13350, growth: 8.2 },
+  { name: "Smart Watch", sales: 65, revenue: 19500, growth: -2.4 },
+  { name: "Bluetooth Speaker", sales: 54, revenue: 8100, growth: 5.7 },
+]
+
+const recentOrders: Order[] = [
+  {
+    id: 38,
+    product: "Test Product",
+    sku: "591253080970",
+    items: 100,
+    total: 99.99,
+    status: "pending",
+    date: "2023-03-14",
+  },
+  {
+    id: 39,
+    product: "Premium Laptop",
+    sku: "591253080971",
+    items: 1,
+    total: 1299.99,
+    status: "pending",
+    date: "2023-03-14",
+  },
+  {
+    id: 37,
+    product: "Wireless Earbuds",
+    sku: "591253080969",
+    items: 2,
+    total: 299.98,
+    status: "shipped",
+    date: "2023-03-13",
+  },
 ]
 
 export default function DashboardPage() {
@@ -88,6 +136,67 @@ export default function DashboardPage() {
   const [analysisError, setAnalysisError] = useState<string | null>(null)
 
 
+  const [orderSearchTerm, setOrderSearchTerm] = useState("")
+  const [showAllOrders, setShowAllOrders] = useState(false)
+  const [orderStatusFilter, setOrderStatusFilter] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<string>("all")
+
+  const [orderStatusDropdownOpen, setOrderStatusDropdownOpen] = useState(false)
+  const [dateDropdownOpen, setDateDropdownOpen] = useState(false)
+
+  // Filter orders based on search term and filters
+  const filteredOrders = useMemo(() => {
+    let filtered: Order[] = [...recentOrders] // Create a copy of the array to avoid mutations
+
+    // Search filter
+    if (orderSearchTerm) {
+      filtered = filtered.filter(
+        (order: Order) =>
+          order.product.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+          order.sku.toLowerCase().includes(orderSearchTerm.toLowerCase()) ||
+          order.id.toString().includes(orderSearchTerm)
+      )
+    }
+
+    // Status filter - only apply if not "all"
+    if (orderStatusFilter && orderStatusFilter !== "all") {
+      filtered = filtered.filter((order: Order) => order.status === orderStatusFilter)
+    }
+
+    // Date filter - only apply if not "all"
+    if (dateFilter && dateFilter !== "all") {
+      const now = new Date()
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()) // Start of today
+
+      switch (dateFilter) {
+        case "today":
+          filtered = filtered.filter((order: Order) => {
+            const orderDate = new Date(order.date)
+            return orderDate >= today
+          })
+          break
+        case "week":
+          const weekAgo = new Date(today)
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          filtered = filtered.filter((order: Order) => new Date(order.date) >= weekAgo)
+          break
+        case "month":
+          const monthAgo = new Date(today)
+          monthAgo.setMonth(monthAgo.getMonth() - 1)
+          filtered = filtered.filter((order: Order) => new Date(order.date) >= monthAgo)
+          break
+      }
+    }
+
+    return filtered
+  }, [recentOrders, orderSearchTerm, orderStatusFilter, dateFilter])
+
+  // Handle view all orders
+  const handleViewAllOrders = () => {
+    setShowAllOrders(true)
+  }
+
+
   useEffect(() => {
     fetchProducts()
   }, [fetchProducts])
@@ -109,16 +218,6 @@ export default function DashboardPage() {
   const salesData = products.map((product: Product) => ({
     name: product.name,
     total: parseFloat(product.price) * product.quantity,
-  }))
-
-
-  const recentOrders = products.map((product: Product) => ({
-    id: product.product_id,
-    customer: product.name,
-    amount: parseFloat(product.price),
-    status: "Pending",
-    items: product.quantity,
-    date: "Just now",
   }))
 
 
@@ -223,182 +322,397 @@ export default function DashboardPage() {
   return (
     <div className="flex-1 space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight text-foreground">Dashboard</h2>
-        <div className="flex items-center space-x-2">
-          <Button>Download Report</Button>
-        </div>
+      <div className="space-y-2">
+        <h2 className="text-3xl font-bold tracking-tight">Welcome back, John</h2>
+        <p className="text-muted-foreground">Here's what's happening with your inventory today.</p>
       </div>
 
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-foreground" />
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">${totalRevenue.toFixed(2)}</div>
-            <div className="flex text-xs text-foreground">
-              <TrendingUp className="mr-1 h-4 w-4 text-green-500 inline" />
-              <p className="text-xs text-foreground">+20.1% from last month</p>
+            <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
+            <div className="flex items-center text-xs">
+              <TrendingUp className="mr-1 h-4 w-4 text-green-500" />
+              <p className="text-green-500">+20.1% from last month</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-foreground" />
+            <CardTitle className="text-sm font-medium">Orders</CardTitle>
+            <ShoppingCart className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{totalOrders}</div>
-            <div className="flex text-xs text-foreground">
-              <TrendingDown className="mr-1 h-4 w-4 text-red-500 inline" />
-              <p className="text-xs text-foreground">-2.5% from last month</p>
+            <div className="text-2xl font-bold">{totalOrders}</div>
+            <div className="flex items-center text-xs">
+              <TrendingDown className="mr-1 h-4 w-4 text-red-500" />
+              <p className="text-red-500">-2.5% from last month</p>
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Products</CardTitle>
-            <Package className="h-4 w-4 text-foreground" />
+            <CardTitle className="text-sm font-medium">Products</CardTitle>
+            <Package className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{totalProducts}</div>
-            <p className="text-xs text-foreground">48 added this month</p>
+            <div className="text-2xl font-bold">{totalProducts}</div>
+            <p className="text-xs text-muted-foreground">+48 added this month</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-foreground">Low Stock Alerts</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-foreground" />
+            <CardTitle className="text-sm font-medium">Low Stock Alerts</CardTitle>
+            <AlertTriangle className="h-4 w-4" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">{lowStockAlertsCount}</div>
-            <p className="text-xs text-foreground">Alerts</p>
+            <div className="text-2xl font-bold">{lowStockAlertsCount}</div>
+            <p className="text-xs text-muted-foreground">All products in stock</p>
           </CardContent>
         </Card>
       </div>
 
-
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-
+        {/* Sales Overview */}
         <Card className="col-span-4">
           <CardHeader>
             <CardTitle>Sales Overview</CardTitle>
+            <CardDescription>Monthly sales performance</CardDescription>
           </CardHeader>
-          <CardContent className="pl-2 h-[350px] overflow-y-auto">
-            {salesData && salesData.length > 0 ? (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Rank
-                      </th>
-                      <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Product
-                      </th>
-                      <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total Sales
-                      </th>
-                      <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Contribution
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {salesData
-                      .sort((a, b) => b.total - a.total)
-                      .map((item, index) => {
-                        const percentage = totalRevenue > 0 ? (item.total / totalRevenue) * 100 : 0
-                        return (
-                          <tr key={index}>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                              {index + 1}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              {item.name}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              ${item.total.toFixed(2)}
-                            </td>
-                            <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-500">
-                              {percentage.toFixed(1)}%
-                            </td>
-                          </tr>
-                        )
-                      })}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <p className="text-gray-500">No sales data available.</p>
-            )}
+          <CardContent className="pl-2">
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dummyAnalysisData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="income" stroke="#34D399" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
-        {/* Recent Orders */}
+
+        {/* Revenue vs Expenses */}
         <Card className="col-span-3">
           <CardHeader>
-            <CardTitle className="text-foreground">Recent Orders</CardTitle>
-            <CardDescription className="text-foreground">
-              Latest transactions across all channels
-            </CardDescription>
+            <CardTitle>Revenue vs Expenses</CardTitle>
+            <CardDescription>Comparison over the last year</CardDescription>
           </CardHeader>
-          <CardContent className="h-[350px] overflow-y-scroll scrollbar-thin scrollbar-thumb-rounded scrollbar-thumb-gray-400">
-            <div className="mb-2">
-              <Input
-                type="text"
-                placeholder="Search orders..."
-                className="border border-gray-300 rounded mb-2"
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+          <CardContent>
+            <div className="h-[350px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={dummyAnalysisData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="month" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="income" stroke="#34D399" strokeWidth={2} />
+                  <Line type="monotone" dataKey="expenses" stroke="#F87171" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="lg:col-span-4">
+          <CardHeader>
+            <CardTitle>Top Selling Products</CardTitle>
+            <CardDescription>Products with the highest sales volume</CardDescription>
+          </CardHeader>
+          <CardContent>
             <div className="space-y-4">
-              {recentOrders
-                .filter((order) => order.customer.toLowerCase().includes(searchTerm.toLowerCase()))
-                .map((order) => (
-                  <div key={order.id} className="flex items-center p-2 hover:bg-gray-100 rounded">
-                    <div className="flex items-center space-x-2">
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold leading-none text-foreground">
-                          {order.customer}
-                        </p>
-                        <p className="text-xs text-foreground">
-                          Order ID: {order.id} · {order.items} items · ${order.amount}
-                        </p>
-                        <p className="text-xs text-gray-500">{order.date}</p>
-                      </div>
-                      <div className="ml-auto flex items-center space-x-1">
-                        {order.status === "Completed" && (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        )}
-                        {order.status === "Processing" && (
-                          <Clock className="h-4 w-4 text-yellow-500" />
-                        )}
-                        {order.status !== "Completed" &&
-                          order.status !== "Processing" && (
-                            <AlertTriangle className="h-4 w-4 text-red-500" />
-                          )}
-                        <Badge
-                          variant={
-                            order.status === "Completed"
-                              ? "default"
-                              : order.status === "Processing"
-                              ? "secondary"
-                              : "outline"
-                          }
-                        >
-                          {order.status}
-                        </Badge>
+              {topProducts.map((product, i) => (
+                <div key={i} className="flex items-center">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center mr-3">
+                    <Package className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="font-medium">{product.name}</p>
+                      <p className="font-medium">${product.revenue.toLocaleString()}</p>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <p>{product.sales} units sold</p>
+                      <div
+                        className={`flex items-center ${
+                          product.growth >= 0 ? "text-green-500" : "text-red-500"
+                        }`}
+                      >
+                        <ArrowUpRight
+                          className={`h-3 w-3 mr-1 ${product.growth < 0 ? "rotate-180" : ""}`}
+                        />
+                        {Math.abs(product.growth)}%
                       </div>
                     </div>
+                    <div className="w-full bg-muted/50 h-1">
+                      <div
+                        className="bg-primary h-1"
+                        style={{ width: `${75 - i * 15}%` }}
+                      ></div>
+                    </div>
                   </div>
-                ))}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recent Orders Card */}
+        <Card className="lg:col-span-3">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Recent Orders</CardTitle>
+              <CardDescription>Latest transactions</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" className="gap-1" onClick={handleViewAllOrders}>
+              <span>View All</span>
+              <ArrowUpRight className="h-4 w-4" />
+            </Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {/* Search and Filters */}
+              <div className="flex flex-col space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search orders..."
+                    className="pl-8"
+                    value={orderSearchTerm}
+                    onChange={(e) => setOrderSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Select
+                    value={orderStatusFilter}
+                    onValueChange={setOrderStatusFilter}
+                    onOpenChange={setOrderStatusDropdownOpen}
+                  >
+                    <SelectTrigger className="w-[130px] truncate">
+                      <SelectValue>
+                        {orderStatusFilter === "all" ? "Status" : orderStatusFilter}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="shipped">Shipped</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={dateFilter}
+                    onValueChange={setDateFilter}
+                    onOpenChange={setDateDropdownOpen}
+                  >
+                    <SelectTrigger className="w-[130px] truncate">
+                      <SelectValue>
+                        {dateFilter === "all" ? "Date" : dateFilter === "week" ? "Last 7 Days" :
+                         dateFilter === "month" ? "Last 30 Days" : "Today"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">Last 7 Days</SelectItem>
+                      <SelectItem value="month">Last 30 Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Orders List */}
+              <ScrollArea className={`h-[350px] transition-all duration-200 ${
+                (orderStatusDropdownOpen || dateDropdownOpen)
+                  ? 'blur-sm pointer-events-none'
+                  : ''
+              }`}>
+                <div className="space-y-4">
+                  {filteredOrders.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                      <Package className="h-12 w-12 text-muted-foreground/50 mb-2" />
+                      <p className="text-sm text-muted-foreground">No orders found</p>
+                      <p className="text-xs text-muted-foreground">Try adjusting your filters</p>
+                    </div>
+                  ) : (
+                    filteredOrders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex flex-col space-y-2 rounded-lg border p-3 shadow-sm transition-all hover:bg-accent/50 cursor-pointer"
+                        onClick={() => router.push(`/orders/${order.id}`)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{order.product}</span>
+                              <Badge
+                                variant={
+                                  order.status === "delivered"
+                                    ? "default"
+                                    : order.status === "shipped"
+                                    ? "secondary"
+                                    : "outline"
+                                }
+                                className="capitalize"
+                              >
+                                {order.status}
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              Order #{order.id} - {order.items} {order.items === 1 ? "item" : "items"} - ${order.total}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                          <span>SKU: {order.sku}</span>
+                          <span>{new Date(order.date).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+
+              {/* Order Summary */}
+              <div className="border-t pt-4">
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Showing {filteredOrders.length} orders</span>
+                  <span>
+                    Total Value: ${filteredOrders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
+                  </span>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* View All Orders Modal */}
+      {showAllOrders && (
+        <Modal
+          title="All Orders"
+          onClose={() => setShowAllOrders(false)}
+          overlayModal={false}
+          contentClassName="max-w-4xl"
+          alignment="top"
+        >
+          <div className="p-6">
+            <div className="space-y-4">
+              {/* Search and Filters */}
+              <div className="flex flex-col space-y-4">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search orders..."
+                    className="pl-8"
+                    value={orderSearchTerm}
+                    onChange={(e) => setOrderSearchTerm(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Select
+                    value={orderStatusFilter}
+                    onValueChange={setOrderStatusFilter}
+                  >
+                    <SelectTrigger className="w-[130px] truncate">
+                      <SelectValue>
+                        {orderStatusFilter === "all" ? "Status" : orderStatusFilter}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="shipped">Shipped</SelectItem>
+                      <SelectItem value="delivered">Delivered</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={dateFilter}
+                    onValueChange={setDateFilter}
+                  >
+                    <SelectTrigger className="w-[130px] truncate">
+                      <SelectValue>
+                        {dateFilter === "all" ? "Date" : dateFilter === "week" ? "Last 7 Days" :
+                         dateFilter === "month" ? "Last 30 Days" : "Today"}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="week">Last 7 Days</SelectItem>
+                      <SelectItem value="month">Last 30 Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Orders Table */}
+              <div className="rounded-md border">
+                <ScrollArea className="h-[500px]">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="h-10 px-4 text-left text-sm font-medium">Order ID</th>
+                        <th className="h-10 px-4 text-left text-sm font-medium">Product</th>
+                        <th className="h-10 px-4 text-left text-sm font-medium">Status</th>
+                        <th className="h-10 px-4 text-left text-sm font-medium">Items</th>
+                        <th className="h-10 px-4 text-left text-sm font-medium">Total</th>
+                        <th className="h-10 px-4 text-left text-sm font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredOrders.map((order) => (
+                        <tr
+                          key={order.id}
+                          className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
+                          onClick={() => router.push(`/orders/${order.id}`)}
+                        >
+                          <td className="p-4 text-sm">#{order.id}</td>
+                          <td className="p-4 text-sm">{order.product}</td>
+                          <td className="p-4 text-sm">
+                            <Badge
+                              variant={
+                                order.status === "delivered"
+                                  ? "default"
+                                  : order.status === "shipped"
+                                  ? "secondary"
+                                  : "outline"
+                              }
+                              className="capitalize"
+                            >
+                              {order.status}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-sm">{order.items}</td>
+                          <td className="p-4 text-sm">${order.total}</td>
+                          <td className="p-4 text-sm">{new Date(order.date).toLocaleDateString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </ScrollArea>
+              </div>
+
+              {/* Summary Footer */}
+              <div className="flex justify-between items-center pt-4">
+                <div className="text-sm text-muted-foreground">
+                  Showing {filteredOrders.length} orders
+                </div>
+                <div className="text-sm font-medium">
+                  Total Value: ${filteredOrders.reduce((sum, order) => sum + order.total, 0).toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Low Stock Alerts */}
       <Card>

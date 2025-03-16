@@ -47,3 +47,41 @@ body {
 input:focus {
   @apply ring-offset-0;
 }
+
+/* Calendar styles */
+.rdp {
+  --rdp-cell-size: 40px; /* Size of date cells */
+  --rdp-accent-color: var(--accent); /* Accent color */
+  --rdp-background-color: var(--background); /* Background color */
+  --rdp-accent-color-dark: var(--accent-foreground); /* Accent color dark */
+  --rdp-background-color-dark: var(--accent); /* Background color dark */
+  --rdp-outline: 2px solid var(--accent); /* Outline */
+  --rdp-outline-selected: 3px solid var(--accent); /* Outline when selected */
+  margin: 1em;
+}
+
+.rdp-months {
+  display: flex;
+  justify-content: center;
+}
+
+.rdp-month {
+  margin: 0 1em;
+}
+
+.rdp-day_selected,
+.rdp-day_selected:focus-visible,
+.rdp-day_selected:hover {
+  color: var(--accent-foreground);
+  opacity: 1;
+  background-color: var(--accent);
+}
+
+.rdp-day_today {
+  font-weight: bold;
+}
+
+.rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
